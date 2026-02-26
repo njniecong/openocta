@@ -1,0 +1,58 @@
+# GoReleaser 配置：交叉编译、RPM/DEB、安装包
+# 版本号以 tag 为准，tag 规范：vx.y.z
+# 使用：GITLAB_TOKEN=xxx goreleaser release --clean
+
+version: 2
+project_name: openclaw
+
+before:
+  hooks:
+    - cd src && go mod download
+
+builds:
+  - id: openclaw
+    dir: src
+    main: ./cmd/openclaw
+    binary: openclaw
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/openclaw/openclaw/pkg/version.Version={{.Version}}
+
+archives:
+  - id: default
+    format_overrides:
+      - goos: windows
+        format: zip
+    builds:
+      - openclaw
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+
+nfpms:
+  - id: openclaw
+    package_name: openclaw
+    vendor: OpenClaw
+    homepage: https://docs.openclaw.ai
+    description: OpenClaw Gateway - Personal AI Assistant control plane
+    formats:
+      - rpm
+      - deb
+    contents:
+      - src: deploy/openclaw.service
+        dst: /lib/systemd/system/openclaw.service
+    # 安装后执行 systemctl daemon-reload
+    scripts:
+      postinstall: deploy/scripts/postinstall.sh
+      postremove: deploy/scripts/postremove.sh
+
+release:
+  gitlab:
+    owner: "{{ .Env.CI_PROJECT_NAMESPACE }}"
+    name: "{{ .Env.CI_PROJECT_NAME }}"
+  # 若本地/非 GitLab 发布，可改为固定值或使用 GORELEASER_GITLAB_* 环境变量
