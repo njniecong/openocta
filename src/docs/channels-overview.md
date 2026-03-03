@@ -19,8 +19,9 @@ OctopusClaw 通过 **Channel（通道）** 将 WhatsApp / Telegram / Feishu / Di
     - 在需要时发送回复消息（可复用 OutboundAdapter 或直接调用 SDK）。
   - 由各 IM 子包实现，例如：  
     - `feishu.Runtime`（WebSocket 收消息）  
-    - `telegram.Runtime` / `whatsapp.Runtime` / `dingtalk.Runtime`（当前为骨架）  
-    - `slack.Runtime` / `discord.Runtime`（当前为骨架）。
+    - `dingtalk.Runtime`（Stream 模式）  
+    - `wework.Runtime`（Webhook HTTP）  
+    - `telegram.Runtime` / `whatsapp.Runtime` / `slack.Runtime` / `discord.Runtime`（当前为骨架）。
 
 - **ChannelManager (`pkg/channels/manager.go`)**  
   - 持有多个 `RuntimeChannel` 实例，统一管理其生命周期（`Start/Stop/List/Status`）。
@@ -58,17 +59,16 @@ flowchart LR
 
 - **Feishu** (`pkg/channels/feishu/runtime.go`)  
   - 使用 `larksuite/oapi-sdk-go/v3/ws` 建立 WebSocket 长连接。  
-  - 支持：  
-    - 文本、图片、富文本（post）解析。  
-    - 群聊中仅在 @ 机器人时才触发。  
-    - 允许列表（`allowedIds`）过滤。  
-    - 通过 `hooksAgentSink` 将消息桥接到 Agent。  
-    - 复用 Feishu HTTP 客户端发送 Markdown 卡片和图片。
+  - 支持：文本、图片、富文本（post）解析；群聊中仅在 @ 机器人时触发；允许列表（`allowedIds`）过滤；收到消息后添加 Typing 表情；通过 `hooksAgentSink` 桥接到 Agent；复用 Feishu HTTP 客户端发送 Markdown 卡片和图片。
 
-- **Telegram / WhatsApp / DingTalk / Slack / Discord**  
-  - 在各自子包下有 `runtime.go` 骨架，实现了 `RuntimeChannel` 的最小占位版本：  
-    - `Start/Stop`：委托给 `BaseRuntimeImpl`。  
-    - `Send/SendStream`：当前为空实现，后续可接入各平台官方 SDK 或桥接服务。
+- **DingTalk** (`pkg/channels/dingtalk/runtime.go`)  
+  - 使用官方 Stream SDK（`open-dingtalk/dingtalk-stream-sdk-go`）建立长连接。  
+  - 支持：私聊与群聊；sessionWebhook 回复；收到消息后发送「正在处理」占位反馈；通过 `hooksAgentSink` 桥接到 Agent；Markdown 文本出站。
 
-后续可以按需依次为这些骨架 Runtime 补充完整的 SDK 集成与入站消息桥接逻辑。
+- **WeWork** (`pkg/channels/wework/runtime.go`)  
+  - 使用 Webhook HTTP 模式，在指定端口（默认 8766）接收企业微信推送。  
+  - 支持：access_token 自动获取（corpID + secret）；加密/明文消息接收；通过 `hooksAgentSink` 桥接到 Agent；文本消息出站。token/encodingAESKey 可选，未配置时仅支持发送。
+
+- **Telegram / WhatsApp / Slack / Discord**  
+  - 在各自子包下有 `runtime.go` 骨架，实现了 `RuntimeChannel` 的最小占位版本，后续可接入各平台官方 SDK。
 

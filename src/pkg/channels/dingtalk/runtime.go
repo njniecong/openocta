@@ -72,6 +72,7 @@ func (r *Runtime) Start(ctx context.Context) error {
 
 	// 启动 StreamClient
 	if err := r.streamClient.Start(r.ctx); err != nil {
+		r.logger.Error("dingtalk runtime: failed to start stream client: %w", err)
 		return fmt.Errorf("dingtalk runtime: failed to start stream client: %w", err)
 	}
 
@@ -194,13 +195,21 @@ func (r *Runtime) onChatBotMessageReceived(ctx context.Context, data *chatbot.Bo
 	// 记录当前会话的 sessionWebhook，后续回复使用
 	if data.SessionWebhook != "" {
 		r.sessionWebhooks.Store(chatID, data.SessionWebhook)
+		// 像飞书一样，立即发送表情/占位回复，表示正在处理（钉钉无消息表情 API，用简短占位消息代替）
+		_ = r.sendTypingIndicator(data.SessionWebhook)
 	}
 
 	r.logger.Info("DingTalk message received, sender_nick=%s, sender_id=%s, chat_id=%s, conversation_type=%s, content_length=%d",
 		senderNick, senderID, chatID, data.ConversationType, len(content))
 
+	// MsgId 用于 deliverMessageID，供 chat.send 投递时作为 RootMessageID 回复到用户消息
+	msgID := data.MsgId
+	if msgID == "" {
+		msgID = data.ConversationId + ":" + fmt.Sprintf("%d", time.Now().UnixMilli())
+	}
+
 	in := &channels.InboundMessage{
-		// ID 由底层平台生成，这里可以为空或使用 ConversationId+timestamp 组合；暂留为空。
+		ID:       msgID,
 		SenderID: senderID,
 		ChatID:   chatID,
 		ChatType: chatType,
@@ -219,6 +228,17 @@ func (r *Runtime) onChatBotMessageReceived(ctx context.Context, data *chatbot.Bo
 
 	// 返回 nil 表示已异步处理，不需要同步回复。
 	return nil, nil
+}
+
+// sendTypingIndicator 发送“正在处理”占位消息，类似飞书的 Typing 表情回复，给用户即时反馈。
+func (r *Runtime) sendTypingIndicator(sessionWebhook string) error {
+	if sessionWebhook == "" {
+		return nil
+	}
+	replier := chatbot.NewChatbotReplier()
+	content := []byte("🖐️ 正在处理...")
+	title := []byte("OpenClaw")
+	return replier.SimpleReplyMarkdown(context.Background(), sessionWebhook, title, content)
 }
 
 // sendDirectReply 使用 sessionWebhook 发送 Markdown 文本回复。

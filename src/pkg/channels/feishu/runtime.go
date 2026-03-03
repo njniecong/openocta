@@ -319,7 +319,7 @@ func (r *Runtime) handleMessageReceived(ctx context.Context, event *larkim.P2Mes
 
 	// 1) 表情回复用户消息为：敲键盘（在调用 Agent 之前）
 	if messageID != "" {
-		_ = r.addReactionToMessage(messageID, "KEYBOARD")
+		_ = r.addReactionToMessage(messageID, "Typing")
 	}
 
 	var ts time.Time

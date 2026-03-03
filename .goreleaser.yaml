@@ -51,6 +51,8 @@ archives:
         dst: docs
       - src: deploy/dist-README.md
         dst: README.md
+      - src: deploy/run-openocta.bat
+        dst: run-openocta.bat
 
   # 独立说明文档压缩包，输出到 dist 目录
   - id: docs

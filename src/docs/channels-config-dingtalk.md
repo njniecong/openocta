@@ -28,9 +28,9 @@
 
 - `credentials`（object，必填）  
   - `clientId`（string，必填）  
-    - 钉钉应用的 Client ID（应用凭证）。
+    - 钉钉应用的 Client ID（应用凭证），对应钉钉机器人 AppKey。
   - `clientSecret`（string，必填）  
-    - 钉钉应用的 Client Secret（应用凭证）。
+    - 钉钉应用的 Client Secret（应用凭证），对应钉钉机器人 AppSecret。
 
 - `allowedIds`（string[]，可选）  
   - 允许与机器人交互的用户 ID 或会话 ID 列表。为空表示不限制。
@@ -39,13 +39,16 @@
 
 钉钉通道使用官方 **Stream 模式** 接入：
 
-- 通过钉钉 Stream SDK 建立长连接，接收机器人回调消息。
+- 通过钉钉 Stream SDK（`open-dingtalk/dingtalk-stream-sdk-go`）建立长连接，接收机器人回调消息。
 - 每条消息会携带 `sessionWebhook`，用于后续回复。
 - 支持私聊与群聊，ChatID 在私聊时为用户 ID，群聊时为会话 ID。
+- 收到消息后立即发送「🖐️ 正在处理...」占位消息（钉钉无消息表情 API，以占位消息代替 Typing 反馈）。
+- 通过 `hooksAgentSink` 将消息桥接到 Agent。sessionKey 格式为 `agent:main:channel:dingtalk:chatId`。
+- 出站发送通过 `sessionWebhook` 调用钉钉回复接口，支持 Markdown 文本。
 
 ## 对应代码位置
 
-- Runtime：`pkg/channels/dingtalk/runtime.go` + `config_runtime.go`  
+- Runtime：`pkg/channels/dingtalk/runtime.go`、`config_runtime.go`  
   - `NewRuntimeFromConfig` 从 `channels.dingtalk` 读取配置并创建 Stream 运行时。  
   - 运行时通过 `hooksAgentSink` 把 IM 消息送入 Agent。  
   - Gateway 的 `send` / `chat.send` 会通过 `ChannelManager` 调用钉钉 Runtime 的 `Send` 进行出站发送。

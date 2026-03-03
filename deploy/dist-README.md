@@ -24,6 +24,7 @@
 
 - `openocta` 或 `openocta.exe` 可执行文件
 - `docs/` 目录：与 `src/docs` 同步的说明文档
+- Windows 压缩包中包含 `run-openocta.bat` 启动脚本（可双击运行）
 
 ---
 
@@ -79,8 +80,9 @@
 1. 解压：
    - 使用资源管理器或 PowerShell：
      - `Expand-Archive .\openocta_<version>_windows_amd64.zip`
-2. 启动：
-   - 在解压目录中双击 `openocta.exe`，或在 PowerShell 中运行：
+2. 启动（两种方式任选其一）：
+   - **方式一（推荐）**：双击解压目录中的 `run-openocta.bat`，脚本会自动执行 `openocta.exe gateway run` 并保持窗口打开；
+   - **方式二**：打开命令提示符（cmd）或 PowerShell，进入解压目录后执行：
      - `.\openocta.exe gateway run`
 3. 命令行窗口会打印启动日志和访问地址，在浏览器中打开该地址即可。
 

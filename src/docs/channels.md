@@ -12,10 +12,10 @@
   - 完整说明 `channels.feishu` 的配置字段与启用步骤。
 
 - DingTalk 配置：`src/docs/channels-config-dingtalk.md`  
-  - 说明 `channels.dingtalk` 的配置字段与启用步骤，支持 Stream 模式。
+  - 说明 `channels.dingtalk` 的配置字段与启用步骤，支持 Stream 模式，sessionWebhook 回复。
 
 - WeWork 配置：`src/docs/channels-config-wework.md`  
-  - 说明 `channels.wework` 的配置字段与启用步骤，支持 Webhook HTTP 模式。
+  - 说明 `channels.wework` 的配置字段与启用步骤，支持 Webhook HTTP 模式，access_token 自动获取，token/encodingAESKey 可选。
 
 - QQ 配置：`src/docs/channels-config-qq.md`  
   - 说明 `channels.qq` 的配置字段与启用步骤，支持 QQ 官方 Bot WebSocket。

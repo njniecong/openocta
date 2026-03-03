@@ -33,9 +33,5 @@ func main() {
 	if err := runtime.EnsureWorkspacePrompts(workspaceDir, promptSourceDir); err != nil {
 		fmt.Fprintf(os.Stderr, "openocta: warning: ensure workspace prompts: %v\n", err)
 	}
-	// 无参数时默认执行 gateway run，便于 Windows/Linux 双击运行
-	if len(os.Args) == 1 {
-		os.Args = append(os.Args, "gateway", "run")
-	}
 	commands.Execute()
 }

@@ -187,7 +187,8 @@ func formatChannelReply(agentName, userQuery, content string) string {
 	if userQuery == "" {
 		return content
 	}
-	return fmt.Sprintf("| 回复 %s: %s\n\n%s", agentName, userQuery, content)
+	return content
+	// return fmt.Sprintf("| 回复 %s: %s\n\n%s", agentName, userQuery, content)
 }
 
 // isCronSessionKey 检测 sessionKey 是否表示 cron 会话。

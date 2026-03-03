@@ -33,7 +33,8 @@ func (s *hooksAgentSink) Deliver(_ context.Context, msg *channels.InboundMessage
 		to = msg.SenderID
 	}
 
-	sessionKey := fmt.Sprintf("channel:%s:%s", channelID, to)
+	// 统一使用 agent:main:channel:channelId:chatId 格式，避免与 agent:channelId:sessionId 等格式混用导致多次会话
+	sessionKey := fmt.Sprintf("agent:main:channel:%s:%s", channelID, to)
 
 	params := handlers.HooksAgentParams{
 		Message:    text,

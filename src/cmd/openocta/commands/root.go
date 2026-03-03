@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/openocta/openocta/pkg/version"
 	"github.com/spf13/cobra"
 )
 
@@ -15,10 +14,7 @@ var RootCmd = &cobra.Command{
 	Short: "OpenOcta CLI",
 	Long:  "OpenOcta - AI agent gateway and CLI.",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf("OpenOcta %s (Go)\n", version.Version)
-		fmt.Println("Usage: openocta <command> [options]")
-		fmt.Println("Commands: gateway, agent, node, channels, config, ...")
-		return nil
+		return cmd.Help()
 	},
 }
 

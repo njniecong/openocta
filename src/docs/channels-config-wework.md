@@ -73,3 +73,5 @@
 5. 启动 Gateway：`make run` 或 `go run ./cmd/openocta gateway run`。
 6. 在 Control UI 中确认 `channels.status` 返回的列表中包含 `wework`。
 7. 在企业微信中向应用发送消息，检查 Agent 是否能够收到并回复。
+
+参考：[企业微信官方文档](https://developer.work.weixin.qq.com/document/path/101039)
