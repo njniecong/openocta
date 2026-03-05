@@ -108,6 +108,7 @@ export async function deleteSession(state: SessionsState, key: string) {
   state.sessionsError = null;
   try {
     await state.client.request("sessions.delete", { key, deleteTranscript: true });
+    state.sessionsLoading = false;
     await loadSessions(state);
   } catch (err) {
     state.sessionsError = String(err);
@@ -145,6 +146,7 @@ export async function deleteSessions(state: SessionsState, keys: string[]) {
     for (const key of safeKeys) {
       await state.client.request("sessions.delete", { key, deleteTranscript: true });
     }
+    state.sessionsLoading = false;
     await loadSessions(state);
   } catch (err) {
     state.sessionsError = String(err);
