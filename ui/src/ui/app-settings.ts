@@ -22,6 +22,8 @@ import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import { loadSessions } from "./controllers/sessions.ts";
 import { loadDigitalEmployees } from "./controllers/digital-employees.ts";
+import { loadTraceList } from "./controllers/llm-trace.ts";
+import { syncLlmTraceFromConfig } from "./app-llm-trace.ts";
 import { loadSkills } from "./controllers/skills.ts";
 import {
   inferBasePathFromPathname,
@@ -192,6 +194,12 @@ export async function refreshActiveTab(host: SettingsHost) {
   }
   if (host.tab === "mcp") {
     await loadConfig(host as unknown as OpenClawApp);
+    syncLlmTraceFromConfig(host as unknown as OpenClawApp);
+  }
+  if (host.tab === "llmTrace") {
+    await loadConfig(host as unknown as OpenClawApp);
+    syncLlmTraceFromConfig(host as unknown as OpenClawApp);
+    await loadTraceList(host as unknown as OpenClawApp);
   }
   if (host.tab === "digitalEmployee") {
     await loadDigitalEmployees(host as unknown as OpenClawApp);
@@ -199,6 +207,7 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "agents") {
     await loadAgents(host as unknown as OpenClawApp);
     await loadConfig(host as unknown as OpenClawApp);
+    syncLlmTraceFromConfig(host as unknown as OpenClawApp);
     const agentIds = host.agentsList?.agents?.map((entry) => entry.id) ?? [];
     if (agentIds.length > 0) {
       void loadAgentIdentities(host as unknown as OpenClawApp, agentIds);
@@ -222,6 +231,7 @@ export async function refreshActiveTab(host: SettingsHost) {
     await loadNodes(host as unknown as OpenClawApp);
     await loadDevices(host as unknown as OpenClawApp);
     await loadConfig(host as unknown as OpenClawApp);
+    syncLlmTraceFromConfig(host as unknown as OpenClawApp);
     await loadExecApprovals(host as unknown as OpenClawApp);
   }
   if (host.tab === "chat") {
@@ -234,9 +244,11 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "config") {
     await loadConfigSchema(host as unknown as OpenClawApp);
     await loadConfig(host as unknown as OpenClawApp);
+    syncLlmTraceFromConfig(host as unknown as OpenClawApp);
   }
   if (host.tab === "envVars" || host.tab === "models") {
     await loadConfig(host as unknown as OpenClawApp);
+    syncLlmTraceFromConfig(host as unknown as OpenClawApp);
   }
   if (host.tab === "debug") {
     await loadDebug(host as unknown as OpenClawApp);

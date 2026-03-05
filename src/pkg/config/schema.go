@@ -94,6 +94,12 @@ type GatewayConfig struct {
 	Http           *GatewayHttpConfig      `json:"http,omitempty"`
 	Nodes          *GatewayNodesConfig     `json:"nodes,omitempty"`
 	TrustedProxies []string                `json:"trustedProxies,omitempty"`
+	LlmTrace       *GatewayLlmTraceConfig  `json:"llmTrace,omitempty"`
+}
+
+// GatewayLlmTraceConfig holds LLM trace middleware settings.
+type GatewayLlmTraceConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // GatewayControlUIConfig holds control UI configuration.

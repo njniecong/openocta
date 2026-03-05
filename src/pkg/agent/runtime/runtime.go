@@ -92,9 +92,13 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	//	ServiceName: "openclaw",
 	//	Endpoint:    "http://192.168.50.254:14318",
 	//}
-	traceMW := middleware.NewTraceMiddleware(filepath.Join(projectRoot, ".trace"))
-	apiOpts.Middleware = []middleware.Middleware{
-		traceMW,
+	// Trace middleware: enabled only when gateway.llmTrace.enabled is true (default: false)
+	if opts.Config != nil && opts.Config.Gateway != nil && opts.Config.Gateway.LlmTrace != nil &&
+		opts.Config.Gateway.LlmTrace.Enabled != nil && *opts.Config.Gateway.LlmTrace.Enabled {
+		traceMW := middleware.NewTraceMiddleware(filepath.Join(projectRoot, ".trace"))
+		apiOpts.Middleware = []middleware.Middleware{
+			traceMW,
+		}
 	}
 
 	rt, err := api.New(ctx, apiOpts)

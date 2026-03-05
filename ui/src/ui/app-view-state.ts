@@ -222,6 +222,14 @@ export type AppViewState = {
   mcpFormDirty: boolean;
   mcpRawJson: string;
   mcpRawError: string | null;
+  // LLM Trace
+  llmTraceLoading: boolean;
+  llmTraceResult: import("./controllers/llm-trace.js").TraceListResult | null;
+  llmTraceError: string | null;
+  llmTraceMode: "active" | "all";
+  llmTraceSearch: string;
+  llmTraceEnabled: boolean;
+  llmTraceSaving: boolean;
   // Models
   modelsSelectedProvider: string | null;
   modelsViewMode: "list" | "card";

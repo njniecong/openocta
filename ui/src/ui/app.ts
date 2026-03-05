@@ -207,6 +207,13 @@ export class OpenClawApp extends LitElement {
   @state() mcpAddEditMode: "form" | "raw" = "form";
   @state() mcpAddRawJson = "{}";
   @state() mcpAddRawError: string | null = null;
+  @state() llmTraceLoading = false;
+  @state() llmTraceResult: import("./controllers/llm-trace.js").TraceListResult | null = null;
+  @state() llmTraceError: string | null = null;
+  @state() llmTraceMode: "active" | "all" = "active";
+  @state() llmTraceSearch = "";
+  @state() llmTraceEnabled = false;
+  @state() llmTraceSaving = false;
   @state() modelsSelectedProvider: string | null = null;
   @state() modelsViewMode: "list" | "card" = "card";
   @state() modelsFormDirty = false;

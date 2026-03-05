@@ -977,6 +977,16 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(100px, 1fr) 90px minmax(200px, 1fr);
 }
 
+/* LLM Trace table: 6 columns (Session Key, Session ID, Updated, File, Size, Actions) */
+.llm-trace-table .mcp-table-head,
+.llm-trace-table .mcp-table-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(100px, 1fr) minmax(140px, 0.9fr) minmax(120px, 1fr) minmax(70px, 0.8fr) minmax(80px, auto);
+}
+
+.llm-trace-table .llm-trace-actions-col {
+  justify-self: end;
+}
+
 .mcp-table-cell {
   min-width: 0;
 }

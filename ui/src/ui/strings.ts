@@ -41,6 +41,7 @@ type Strings = {
   subtitleModels: string;
   subtitleDebug: string;
   subtitleLogs: string;
+  subtitleLlmTrace: string;
   // Nav titles (tab labels; proper nouns not translated)
   navTitleAgents: string;
   navTitleOverview: string;
@@ -61,6 +62,7 @@ type Strings = {
   navTitleModels: string;
   navTitleDebug: string;
   navTitleLogs: string;
+  navTitleLlmTrace: string;
   navTitleControl: string;
   // Overview
   overviewGatewayAccess: string;
@@ -138,6 +140,22 @@ type Strings = {
   mcpTableType: string;
   mcpTableStatus: string;
   mcpTableActions: string;
+  llmTraceSearch: string;
+  llmTraceSearchPlaceholder: string;
+  llmTraceEnabled: string;
+  llmTraceDisabled: string;
+  llmTraceActionEnable: string;
+  llmTraceActionDisable: string;
+  llmTraceToggleTooltip: string;
+  llmTraceModeActive: string;
+  llmTraceModeAll: string;
+  llmTraceSessionKey: string;
+  llmTraceSessionId: string;
+  llmTraceUpdatedAt: string;
+  llmTraceFile: string;
+  llmTraceFileSize: string;
+  llmTraceView: string;
+  llmTraceNoEntries: string;
   modelsViewList: string;
   modelsViewCard: string;
   modelsTableName: string;
@@ -852,6 +870,7 @@ const EN: Strings = {
   subtitleModels: "Configure model providers and API keys.",
   subtitleDebug: "Gateway snapshots, events, and manual RPC calls.",
   subtitleLogs: "Live tail of the gateway file logs.",
+  subtitleLlmTrace: "View LLM trace details for sessions.",
   navTitleAgents: "Agents",
   navTitleOverview: "Overview",
   navTitleChannels: "Channels",
@@ -871,6 +890,7 @@ const EN: Strings = {
   navTitleModels: "Models",
   navTitleDebug: "Debug",
   navTitleLogs: "Logs",
+  navTitleLlmTrace: "LLM Trace",
   navTitleControl: "Control",
   overviewGatewayAccess: "Gateway Access",
   overviewGatewayAccessSub: "Where the dashboard connects and how it authenticates.",
@@ -945,6 +965,23 @@ const EN: Strings = {
   mcpTableType: "Type",
   mcpTableStatus: "Status",
   mcpTableActions: "Actions",
+  llmTraceSearch: "Search",
+  llmTraceSearchPlaceholder: "Filter by session key…",
+  llmTraceEnabled: "Enabled",
+  llmTraceDisabled: "Disabled",
+  llmTraceActionEnable: "Enable",
+  llmTraceActionDisable: "Disable",
+  llmTraceToggleTooltip:
+    "When enabled, new sessions will record model call Trace details (may impact performance). When disabled, new Trace details will not be recorded.",
+  llmTraceModeActive: "Active",
+  llmTraceModeAll: "All",
+  llmTraceSessionKey: "Session Key",
+  llmTraceSessionId: "Session ID",
+  llmTraceUpdatedAt: "Updated",
+  llmTraceFile: "File",
+  llmTraceFileSize: "Size",
+  llmTraceView: "View",
+  llmTraceNoEntries: "No trace entries.",
   modelsViewList: "List view",
   modelsViewCard: "Card view",
   modelsTableName: "Name",
@@ -1652,6 +1689,7 @@ const ZH: Strings = {
   subtitleModels: "配置模型厂商与 API 密钥。",
   subtitleDebug: "网关快照、事件与手动 RPC 调用。",
   subtitleLogs: "网关日志实时查看。",
+  subtitleLlmTrace: "查看会话的 LLM trace 详情。",
   navTitleAgents: "代理",
   navTitleOverview: "概览",
   navTitleChannels: "通道",
@@ -1671,6 +1709,7 @@ const ZH: Strings = {
   navTitleModels: "模型",
   navTitleDebug: "测试",
   navTitleLogs: "日志",
+  navTitleLlmTrace: "LLM Trace",
   navTitleControl: "控制",
   overviewGatewayAccess: "网关访问",
   overviewGatewayAccessSub: "控制台连接地址与认证方式。",
@@ -1745,6 +1784,23 @@ const ZH: Strings = {
   mcpTableType: "连接类型",
   mcpTableStatus: "状态",
   mcpTableActions: "操作",
+  llmTraceSearch: "搜索",
+  llmTraceSearchPlaceholder: "按 session key 筛选…",
+  llmTraceEnabled: "已开启",
+  llmTraceDisabled: "已关闭",
+  llmTraceActionEnable: "开启",
+  llmTraceActionDisable: "关闭",
+  llmTraceToggleTooltip:
+    "开启后，再进行会话会记录模型调用Trace详情，可能会有性能影响。关闭后，不再记录新的模型会话Trace详情。",
+  llmTraceModeActive: "活跃",
+  llmTraceModeAll: "全部",
+  llmTraceSessionKey: "Session Key",
+  llmTraceSessionId: "Session ID",
+  llmTraceUpdatedAt: "更新时间",
+  llmTraceFile: "文件",
+  llmTraceFileSize: "大小",
+  llmTraceView: "查看",
+  llmTraceNoEntries: "暂无 trace 记录。",
   modelsViewList: "列表",
   modelsViewCard: "卡片",
   modelsTableName: "名称",

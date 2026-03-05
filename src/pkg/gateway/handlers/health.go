@@ -148,6 +148,8 @@ func NewRegistry(ctx *Context) Registry {
 		"sessions.usage":            SessionsUsageHandler,
 		"sessions.usage.timeseries": SessionsUsageTimeseriesHandler,
 		"sessions.usage.logs":       SessionsUsageLogsHandler,
+		"trace.list":                TraceListHandler,
+		"trace.content":             TraceContentHandler,
 		"last-heartbeat":            LastHeartbeatHandler,
 		"set-heartbeats":            SetHeartbeatsHandler,
 		"wake":                      WakeHandler,

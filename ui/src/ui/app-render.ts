@@ -90,6 +90,7 @@ import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
 import { renderMcp } from "./views/mcp.ts";
+import { renderLlmTrace } from "./views/llm-trace.ts";
 import { renderModels } from "./views/models.ts";
 import { renderUsage } from "./views/usage.ts";
 import {
@@ -112,6 +113,13 @@ import {
   handleMcpViewModeChange,
   handleMcpEditConnectionTypeChange,
 } from "./app-mcp.ts";
+import {
+  handleLlmTraceRefresh,
+  handleLlmTraceModeChange,
+  handleLlmTraceSearchChange,
+  handleLlmTraceToggleEnabled,
+  handleLlmTraceView,
+} from "./app-llm-trace.ts";
 import {
   handleModelsAddProvider,
   handleModelsAddProviderModalClose,
@@ -213,6 +221,10 @@ export function renderApp(state: AppViewState) {
           </div>
         </div>
         <div class="topbar-status">
+          <div class="pill">
+            <span>Version</span>
+            <span class="mono">${typeof __APP_VERSION__ === "string" && __APP_VERSION__ ? __APP_VERSION__ : "---"}</span>
+          </div>
           <div class="pill">
             <span class="statusDot ${state.connected ? "ok" : ""}"></span>
             <span>Health</span>
@@ -1173,6 +1185,25 @@ export function renderApp(state: AppViewState) {
                 onSave: () => handleMcpSave(state),
                 onCancel: () => handleMcpCancel(state),
                 onDelete: (key) => handleMcpDelete(state, key),
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "llmTrace"
+            ? renderLlmTrace({
+                loading: state.llmTraceLoading,
+                result: state.llmTraceResult,
+                error: state.llmTraceError,
+                mode: state.llmTraceMode,
+                search: state.llmTraceSearch,
+                enabled: state.llmTraceEnabled,
+                saving: state.llmTraceSaving,
+                onRefresh: () => handleLlmTraceRefresh(state),
+                onModeChange: (mode) => handleLlmTraceModeChange(state, mode),
+                onSearchChange: (value) => handleLlmTraceSearchChange(state, value),
+                onToggleEnabled: () => handleLlmTraceToggleEnabled(state),
+                onView: (sessionId) => handleLlmTraceView(state, sessionId),
               })
             : nothing
         }
