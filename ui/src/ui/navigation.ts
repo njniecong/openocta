@@ -3,7 +3,7 @@ import { t } from "./strings.js";
 
 export function getTabGroups() {
   return [
-    { label: t("tabGroupChat"), tabs: ["chat", "digitalEmployee", "agentSwarm"] as const },
+    { label: t("tabGroupChat"), tabs: ["chat", "digitalEmployee"] as const },
     {
       label: t("tabGroupControl"),
       tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"] as const,
