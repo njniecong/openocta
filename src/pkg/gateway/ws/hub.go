@@ -86,7 +86,7 @@ func NewHub(version string, h *handlers.Registry, ctx *handlers.Context) *Hub {
 		"update.run", "voicewake.get", "voicewake.set",
 		"sessions.list", "sessions.preview", "sessions.patch", "sessions.reset", "sessions.delete", "sessions.compact", "sessions.usage", "sessions.usage.timeseries", "sessions.usage.logs",
 		"trace.list", "trace.content",
-		"approvals.list", "approvals.approve", "approvals.deny",
+		"approvals.list", "approvals.approve", "approvals.deny", "approvals.whitelistSession",
 		"last-heartbeat", "set-heartbeats", "wake",
 		"node.pair.request", "node.pair.list", "node.pair.approve", "node.pair.reject", "node.pair.verify",
 		"device.pair.list", "device.pair.approve", "device.pair.reject",

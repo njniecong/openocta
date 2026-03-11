@@ -19,6 +19,7 @@ export type SandboxProps = {
   onApprovalsRefresh: () => void;
   onApprove: (requestId: string) => void;
   onDeny: (requestId: string, reason?: string) => void;
+  onWhitelistSession: (requestId: string, sessionId: string) => void;
   pathForTab: (tab: Tab) => string;
 };
 
@@ -438,6 +439,19 @@ export function renderSandbox(props: SandboxProps) {
                                 ? html`
                                     <button class="btn btn--sm btn-ok" @click=${() => props.onApprove(e.id)}>${t("approvalsApprove")}</button>
                                     <button class="btn btn--sm" @click=${() => props.onDeny(e.id)}>${t("approvalsDeny")}</button>
+                                    <button
+                                      class="btn btn--sm btn-ok"
+                                      @click=${() => {
+                                        const confirmed = window.confirm(
+                                          `全部放行后该 sessionId (${e.sessionId}) 对应的会话执行的所有命令将默认通过，不再进入审批队列。确定要全部放行吗？`,
+                                        );
+                                        if (confirmed) {
+                                          props.onWhitelistSession(e.id, e.sessionId);
+                                        }
+                                      }}
+                                    >
+                                      全部放行
+                                    </button>
                                   `
                                 : nothing}
                             </div>

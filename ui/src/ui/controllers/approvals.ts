@@ -66,3 +66,16 @@ export async function denyApproval(
   });
   await loadApprovalsList(state);
 }
+
+export async function whitelistSessionApprovals(
+  state: ApprovalsState,
+  requestId: string,
+  approverId: string,
+) {
+  if (!state.client || !state.connected) return;
+  await state.client.request("approvals.whitelistSession", {
+    requestId,
+    approverId,
+  });
+  await loadApprovalsList(state);
+}

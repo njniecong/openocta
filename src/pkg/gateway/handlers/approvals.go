@@ -241,3 +241,91 @@ func ApprovalsDenyHandler(opts HandlerOpts) error {
 	opts.Respond(true, map[string]interface{}{"requestId": requestID, "status": "denied"}, nil, nil)
 	return nil
 }
+
+// ApprovalsWhitelistSessionHandler handles "approvals.whitelistSession".
+// It adds the session of the given request to the whitelist (indefinitely)
+// and marks this specific approval as approved.
+func ApprovalsWhitelistSessionHandler(opts HandlerOpts) error {
+	requestID, _ := opts.Params["requestId"].(string)
+	approverID, _ := opts.Params["approverId"].(string)
+	if requestID == "" {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInvalidRequest,
+			Message: "requestId required",
+		}, nil)
+		return nil
+	}
+
+	cfg := loadConfigFromContext(opts.Context)
+	env := func(k string) string { return os.Getenv(k) }
+	storeFile, timeoutSeconds := resolveApprovalStoreFile(cfg, env)
+	snap, err := loadApprovalSnapshot(storeFile)
+	if err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{Code: protocol.ErrCodeInternal, Message: err.Error()}, nil)
+		return nil
+	}
+
+	now := time.Now()
+	var rec *approvalRecord
+	for i := range snap.Records {
+		r := &snap.Records[i]
+		if r.ID == requestID {
+			// Only allow whitelisting pending, non-expired approvals
+			if r.State != string(security.ApprovalPending) {
+				opts.Respond(false, nil, &protocol.ErrorShape{
+					Code:    protocol.ErrCodeInvalidRequest,
+					Message: "approval not pending",
+				}, nil)
+				return nil
+			}
+			if timeoutSeconds > 0 && now.After(r.RequestedAt.Add(time.Duration(timeoutSeconds)*time.Second)) {
+				opts.Respond(false, nil, &protocol.ErrorShape{
+					Code:    protocol.ErrCodeInvalidRequest,
+					Message: "approval request expired",
+				}, nil)
+				return nil
+			}
+			rec = r
+			break
+		}
+	}
+	if rec == nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeNotFound,
+			Message: "approval request not found",
+		}, nil)
+		return nil
+	}
+
+	q, err := octasecurity.GetApprovalQueue(storeFile)
+	if err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{Code: protocol.ErrCodeInternal, Message: err.Error()}, nil)
+		return nil
+	}
+
+	// Whitelist the session indefinitely (ttl=0 means no expiry).
+	ttl := time.Duration(int64(*opts.Context.Config.Security.ApprovalQueue.TimeoutSeconds)) * time.Second
+	if err := q.AddSessionToWhitelist(rec.SessionID, ttl); err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: err.Error(),
+		}, nil)
+		return nil
+	}
+
+	// Also mark this pending approval as approved with configured TTL.
+	if _, err := q.Approve(requestID, strings.TrimSpace(approverID), ttl); err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: err.Error(),
+		}, nil)
+		return nil
+	}
+
+	opts.Respond(true, map[string]interface{}{
+		"requestId": requestID,
+		"sessionId": rec.SessionID,
+		"status":    "whitelisted",
+	}, nil, nil)
+	return nil
+}

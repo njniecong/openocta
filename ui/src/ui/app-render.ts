@@ -136,6 +136,7 @@ import {
   loadApprovalsList,
   approveApproval,
   denyApproval,
+  whitelistSessionApprovals,
 } from "./controllers/approvals.ts";
 import {
   handleModelsAddProvider,
@@ -1338,6 +1339,8 @@ export function renderApp(state: AppViewState) {
                   approveApproval(state, requestId, "ui"),
                 onDeny: (requestId, reason) =>
                   denyApproval(state, requestId, "ui", reason),
+                onWhitelistSession: (requestId, _sessionId) =>
+                  whitelistSessionApprovals(state, requestId, "ui"),
                 pathForTab: (tab) => pathForTab(tab, state.basePath),
               })
             : nothing

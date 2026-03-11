@@ -1,6 +1,6 @@
 module github.com/openocta/openocta
 
-go 1.24.0
+go 1.26.1
 
 require (
 	github.com/cexll/agentsdk-go v0.9.5
@@ -60,4 +60,7 @@ require (
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
+)
+replace (
+	github.com/cexll/agentsdk-go v0.9.5 => /Users/ZhanBei/GoProjects/agentsdk-go
 )
