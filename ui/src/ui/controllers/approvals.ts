@@ -5,15 +5,34 @@ export type ApprovalEntry = {
   sessionId: string;
   sessionKey?: string;
   command: string;
+  paths?: string[];
   createdAt: number;
   timeoutAt?: number;
+  expiresAt?: number;
   ttlSeconds?: number;
+  approvedAt?: number;
+  approver?: string;
+  reason?: string;
+  autoApproved?: boolean;
+  expired?: boolean;
   status: "pending" | "approved" | "denied" | "expired";
+};
+
+export type WhitelistEntry = {
+  sessionId: string;
+  status: "whitelisted" | "whitelist_expired";
+  expiresAt?: number;
+  ttlSeconds?: number;
+  expired?: boolean;
 };
 
 export type ApprovalsListResult = {
   storePath: string;
   entries: ApprovalEntry[];
+  approved?: ApprovalEntry[];
+  pending?: ApprovalEntry[];
+  denied?: ApprovalEntry[];
+  whitelisted?: WhitelistEntry[];
 };
 
 export type ApprovalsState = {
@@ -30,7 +49,16 @@ export async function loadApprovalsList(state: ApprovalsState) {
   state.approvalsError = null;
   try {
     const res = await state.client.request<ApprovalsListResult | undefined>("approvals.list", {});
-    state.approvalsResult = res ?? { storePath: "", entries: [] };
+    const raw = res ?? { storePath: "", entries: [] };
+    const entries = raw.entries ?? [];
+    state.approvalsResult = {
+      storePath: raw.storePath,
+      entries,
+      approved: raw.approved ?? entries.filter((e) => e.status === "approved"),
+      pending: raw.pending ?? entries.filter((e) => e.status === "pending" || e.status === "expired"),
+      denied: raw.denied ?? entries.filter((e) => e.status === "denied"),
+      whitelisted: raw.whitelisted ?? [],
+    };
   } catch (err) {
     state.approvalsError = String(err);
     state.approvalsResult = null;

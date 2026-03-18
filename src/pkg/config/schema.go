@@ -56,11 +56,37 @@ type OpenOctaConfig struct {
 	Security *SecurityConfig `json:"security,omitempty"`
 }
 
-// SecurityConfig groups sandbox, validator and approval queue.
+// SecurityConfig groups sandbox, command policy and approval queue.
+// CommandPolicy is the unified command rules layer; when present it takes precedence.
+// Legacy Validator and ApprovalQueue.allow/ask/deny are merged when CommandPolicy is absent.
 type SecurityConfig struct {
 	Sandbox       *SandboxConfig          `json:"sandbox,omitempty"`
 	Validator     *SandboxValidatorConfig `json:"validator,omitempty"`
 	ApprovalQueue *SandboxApprovalQueue   `json:"approvalQueue,omitempty"`
+	CommandPolicy *CommandPolicyConfig    `json:"commandPolicy,omitempty"`
+	Preset        *string                 `json:"preset,omitempty"` // "off" | "loose" | "standard" | "strict"
+}
+
+// CommandPolicyConfig is the unified command policy (Layer 2).
+// Rules are evaluated in order: deny → ask → allow. Unmatched commands use DefaultPolicy.
+// Prefer Deny/Ask/Allow (grouped) when saving; Rules is supported for backward compatibility when reading.
+type CommandPolicyConfig struct {
+	Enabled        *bool               `json:"enabled,omitempty"`
+	DefaultPolicy  *string             `json:"defaultPolicy,omitempty"` // "deny" | "ask" | "allow"
+	Rules          []CommandPolicyRule `json:"rules,omitempty"`         // legacy: flat array
+	Deny           []string            `json:"deny,omitempty"`          // grouped: patterns to deny (space in pattern = fragment)
+	Ask            []string            `json:"ask,omitempty"`           // grouped: patterns requiring approval
+	Allow          []string            `json:"allow,omitempty"`         // grouped: patterns to auto-allow
+	BanArguments   []string            `json:"banArguments,omitempty"`
+	MaxLength      *int                `json:"maxLength,omitempty"`
+	SecretPatterns []string            `json:"secretPatterns,omitempty"`
+}
+
+// CommandPolicyRule defines a single command rule.
+type CommandPolicyRule struct {
+	Action  string `json:"action"` // "deny" | "ask" | "allow"
+	Pattern string `json:"pattern"`
+	Type    string `json:"type"` // "command" | "fragment"
 }
 
 // SandboxConfig defines sandbox configuration for agent execution.

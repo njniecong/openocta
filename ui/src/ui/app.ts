@@ -214,7 +214,7 @@ export class OpenClawApp extends LitElement {
   @state() llmTraceSearch = "";
   @state() llmTraceEnabled = false;
   @state() llmTraceSaving = false;
-  @state() sandboxForm: import("./controllers/sandbox.js").SandboxConfigForm | Record<string, unknown> | null = null;
+  @state() securityForm: import("./controllers/security.js").SecurityConfigForm | Record<string, unknown> | null = null;
   @state() approvalsLoading = false;
   @state() approvalsResult: import("./controllers/approvals.js").ApprovalsListResult | null = null;
   @state() approvalsError: string | null = null;

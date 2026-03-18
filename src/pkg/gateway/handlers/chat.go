@@ -1077,7 +1077,6 @@ func ChatSendHandler(opts HandlerOpts) error {
 					systemPromptOverrides = strings.TrimSpace(m.Prompt)
 				}
 			}
-
 			rtOpts := runtime.Options{
 				Tools:                 agentTools,
 				ModelFactory:          modelFactory,

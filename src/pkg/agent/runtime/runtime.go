@@ -44,8 +44,17 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	if projectRoot == "" {
 		projectRoot = "."
 	}
+
+	// Resolve enableSandbox early so BuiltinTools can use disabled sandbox when config says so.
+	enableSandbox := opts.EnableSandbox
+	if opts.Config != nil && opts.Config.Security != nil && opts.Config.Security.Sandbox != nil &&
+		opts.Config.Security.Sandbox.Enabled != nil {
+		enableSandbox = *opts.Config.Security.Sandbox.Enabled
+	}
+
 	// Built-in tools (bash, file_read, file_write, grep, glob, etc.) plus any caller-provided tools.
-	tools := BuiltinTools(projectRoot)
+	// When sandbox disabled, use NewDisabledSandbox so tools skip path/permission validation.
+	tools := BuiltinTools(projectRoot, !enableSandbox)
 	if len(opts.Tools) > 0 {
 		tools = append(tools, opts.Tools...)
 	}
@@ -88,26 +97,25 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	// Security policy from root-level security config (OpenOctaConfig.Security).
 	var (
 		sandboxRoot       *config.SandboxConfig
-		validatorCfg      *config.SandboxValidatorConfig
 		approvalQueueCfg  *config.SandboxApprovalQueue
 		approvalStorePath string
+		commandPolicy     *ResolvedCommandPolicy
 	)
-	if opts.Config != nil {
-		if opts.Config.Security != nil {
-			sandboxRoot = opts.Config.Security.Sandbox
-			if opts.Config.Security.Validator != nil {
-				if opts.Config.Security.Validator.Enabled == nil || *opts.Config.Security.Validator.Enabled {
-					validatorCfg = opts.Config.Security.Validator
-				}
-			}
-			if opts.Config.Security.ApprovalQueue != nil {
-				approvalQueueCfg = opts.Config.Security.ApprovalQueue
-				approvalStorePath = resolveApprovalQueueStorePath(sandboxRoot, opts.Env)
-			}
+	if opts.Config != nil && opts.Config.Security != nil {
+		sec := opts.Config.Security
+		sandboxRoot = sec.Sandbox
+		commandPolicy = ResolveCommandPolicy(sec)
+		if sec.ApprovalQueue != nil {
+			approvalQueueCfg = sec.ApprovalQueue
+			approvalStorePath = resolveApprovalQueueStorePath(sandboxRoot, opts.Env)
 		}
 	}
 
-	// Wrap Bash tool with custom command validator (OpenOcta sandbox.validator).
+	// Wrap Bash tool with command validation (from commandPolicy or legacy validator).
+	var validatorCfg *config.SandboxValidatorConfig
+	if commandPolicy != nil && commandPolicy.Enabled {
+		validatorCfg = commandPolicy.ToLegacyValidator()
+	}
 	if validatorCfg != nil {
 		for i := range tools {
 			if tools[i] == nil {
@@ -126,10 +134,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 			sandboxOpts = mergeSandboxOpts(fromConfig, sandboxOpts)
 		}
 	}
-	enableSandbox := opts.EnableSandbox
-	if sandboxRoot != nil && sandboxRoot.Enabled != nil {
-		enableSandbox = *sandboxRoot.Enabled
-	}
+	// enableSandbox already resolved above from config
 	if enableSandbox {
 		apiOpts.Sandbox = buildSandboxOptions(projectRoot, sandboxOpts)
 		apiOpts.SettingsOverrides.Sandbox = &agentsdkConfg.SandboxConfig{
@@ -154,8 +159,14 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 			apiOpts.SettingsOverrides.Permissions.Ask = append(apiOpts.SettingsOverrides.Permissions.Ask, "bash")
 		}
 
-		// Write approval queue config to ~/.openocta/workspace/.claude/settings.json
-		if err := writeApprovalQueueSettings(opts.Env, approvalQueueCfg); err != nil {
+		// Write approval queue config to ~/.openocta/workspace/.claude/settings.json.
+		// When commandPolicy is present, use its allow/ask/deny; else use approvalQueue.
+		var permsOverride *ApprovalQueuePermsOverride
+		if commandPolicy != nil && commandPolicy.Enabled {
+			allow, ask, deny := commandPolicy.ToApprovalQueuePerms()
+			permsOverride = &ApprovalQueuePermsOverride{Allow: allow, Ask: ask, Deny: deny}
+		}
+		if err := writeApprovalQueueSettings(opts.Env, approvalQueueCfg, permsOverride); err != nil {
 			log.Errorf("Warning: failed to write approval queue settings: %v", err)
 		}
 
@@ -207,7 +218,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	}
 
 	// Command validation middleware (BeforeTool): emits early errors for audit/logging.
-	if validatorCfg != nil && *validatorCfg.Enabled {
+	if validatorCfg != nil && (validatorCfg.Enabled == nil || *validatorCfg.Enabled) {
 		apiOpts.Middleware = append(apiOpts.Middleware, middleware.Funcs{
 			Identifier: "openocta-command-validator",
 			OnBeforeTool: func(_ context.Context, st *middleware.State) error {
@@ -513,9 +524,15 @@ func getSettingsPath(env func(string) string) string {
 	return filepath.Join(stateDir, "workspace", ".claude", "settings.json")
 }
 
+// ApprovalQueuePermsOverride provides allow/ask/deny from commandPolicy when present.
+type ApprovalQueuePermsOverride struct {
+	Allow, Ask, Deny []string
+}
+
 // writeApprovalQueueSettings writes approval queue configuration to settings.json
-// Format follows the .claude/settings.json specification from settings-configuration.md
-func writeApprovalQueueSettings(env func(string) string, cfg *config.SandboxApprovalQueue) error {
+// Format follows the .claude/settings.json specification from settings-configuration.md.
+// When permsOverride is set (from commandPolicy), it takes precedence over cfg.Allow/Ask/Deny.
+func writeApprovalQueueSettings(env func(string) string, cfg *config.SandboxApprovalQueue, permsOverride *ApprovalQueuePermsOverride) error {
 	settingsPath := getSettingsPath(env)
 
 	// Build permissions config
@@ -524,23 +541,30 @@ func writeApprovalQueueSettings(env func(string) string, cfg *config.SandboxAppr
 		DisableBypassPermissionsMode: "enable",
 	}
 
+	var allow, ask, deny []string
+	if permsOverride != nil {
+		allow, ask, deny = permsOverride.Allow, permsOverride.Ask, permsOverride.Deny
+	} else if cfg != nil {
+		allow, ask, deny = cfg.Allow, cfg.Ask, cfg.Deny
+	}
+
 	// Add allow rules
-	if len(cfg.Allow) > 0 {
-		for _, cmd := range cfg.Allow {
+	for _, cmd := range allow {
+		if cmd != "" {
 			perms.Allow = append(perms.Allow, fmt.Sprintf("Bash(%s:*)", cmd))
 		}
 	}
 
 	// Add ask rules (commands requiring approval)
-	if len(cfg.Ask) > 0 {
-		for _, cmd := range cfg.Ask {
+	for _, cmd := range ask {
+		if cmd != "" {
 			perms.Ask = append(perms.Ask, fmt.Sprintf("Bash(%s:*)", cmd))
 		}
 	}
 
 	// Add deny rules
-	if len(cfg.Deny) > 0 {
-		for _, cmd := range cfg.Deny {
+	for _, cmd := range deny {
+		if cmd != "" {
 			perms.Deny = append(perms.Deny, fmt.Sprintf("Bash(%s:*)", cmd))
 		}
 	}

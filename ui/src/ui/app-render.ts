@@ -86,7 +86,7 @@ import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
 import { renderMcp } from "./views/mcp.ts";
 import { renderLlmTrace } from "./views/llm-trace.ts";
-import { renderSandbox } from "./views/sandbox.ts";
+import { renderSecurity } from "./views/security.ts";
 import { renderModels } from "./views/models.ts";
 import { renderUsage } from "./views/usage.ts";
 import {
@@ -117,14 +117,12 @@ import {
   handleLlmTraceView,
 } from "./app-llm-trace.ts";
 import {
-  syncSandboxFromConfig,
-  handleSandboxToggleEnabled,
-  handleSandboxPatch,
-  handleSandboxSave,
-  handleValidatorToggleEnabled,
-  handleApprovalQueueToggleEnabled,
-} from "./app-sandbox.ts";
-import { getSandboxFromConfig } from "./controllers/sandbox.ts";
+  syncSecurityFromConfig,
+  handleSecurityPresetApply,
+  handleSecurityPatch,
+  handleSecuritySave,
+} from "./app-security.ts";
+import { getSecurityFromConfig } from "./controllers/security.ts";
 import {
   loadApprovalsList,
   approveApproval,
@@ -1304,37 +1302,34 @@ export function renderApp(state: AppViewState) {
 
         ${
           state.tab === "sandbox"
-            ? renderSandbox({
-                sandbox:
-                  state.sandboxForm ??
-                  getSandboxFromConfig(state) ??
+            ? renderSecurity({
+                security:
+                  state.securityForm ??
+                  getSecurityFromConfig(state) ??
                   {},
                 saving: state.configSaving,
-                onToggleEnabled: () => handleSandboxToggleEnabled(state),
-                onToggleValidatorEnabled: () => handleValidatorToggleEnabled(state),
-                onToggleApprovalEnabled: () => handleApprovalQueueToggleEnabled(state),
+                pendingApprovalsCount: (state.approvalsResult?.pending ?? state.approvalsResult?.entries ?? []).filter((e) => e.status === "pending" && !e.expired).length,
+                onPresetApply: (preset) => handleSecurityPresetApply(state, preset),
                 onPatch: (path, value) => {
-                  if (!state.sandboxForm) {
-                    state.sandboxForm = syncSandboxFromConfig(state) ?? {};
+                  if (!state.securityForm) {
+                    state.securityForm = syncSecurityFromConfig(state) ?? {};
                   }
-                  handleSandboxPatch(state, state.sandboxForm as Record<string, unknown>, path, value);
+                  handleSecurityPatch(state, state.securityForm as Record<string, unknown>, path, value);
                 },
                 onSave: () =>
-                  handleSandboxSave(
+                  handleSecuritySave(
                     state,
-                    state.sandboxForm ?? getSandboxFromConfig(state) ?? {},
+                    state.securityForm ?? getSecurityFromConfig(state) ?? {},
                   ),
+                pathForTab: (tab) => pathForTab(tab, state.basePath),
                 approvalsLoading: state.approvalsLoading,
                 approvalsResult: state.approvalsResult,
                 approvalsError: state.approvalsError,
                 onApprovalsRefresh: () => loadApprovalsList(state),
-                onApprove: (requestId) =>
-                  approveApproval(state, requestId, "ui"),
-                onDeny: (requestId, reason) =>
-                  denyApproval(state, requestId, "ui", reason),
-                onWhitelistSession: (requestId, _sessionId) =>
+                onApprove: (requestId) => approveApproval(state, requestId, "ui"),
+                onDeny: (requestId, reason) => denyApproval(state, requestId, "ui", reason),
+                onWhitelistSession: (requestId) =>
                   whitelistSessionApprovals(state, requestId, "ui"),
-                pathForTab: (tab) => pathForTab(tab, state.basePath),
               })
             : nothing
         }

@@ -233,8 +233,8 @@ export type AppViewState = {
   llmTraceSearch: string;
   llmTraceEnabled: boolean;
   llmTraceSaving: boolean;
-  // Sandbox
-  sandboxForm: import("./controllers/sandbox.js").SandboxConfigForm | Record<string, unknown> | null;
+  // Security (replaces sandbox)
+  securityForm: import("./controllers/security.js").SecurityConfigForm | Record<string, unknown> | null;
   // Approvals
   approvalsLoading: boolean;
   approvalsResult: import("./controllers/approvals.js").ApprovalsListResult | null;

@@ -2591,6 +2591,25 @@
   font-size: 13px;
 }
 
+/* 审批队列表格：5 列，操作按钮同行展示 */
+.approvals-queue-table .mcp-table-head,
+.approvals-queue-table .mcp-table-row {
+  grid-template-columns: minmax(0, 1.5fr) minmax(80px, 1fr) minmax(100px, 1fr) minmax(50px, 0.6fr) minmax(280px, auto);
+}
+
+.approvals-actions-cell {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.approvals-actions-cell .btn {
+  flex-shrink: 0;
+}
+
 /* 8 columns: ID, SessionKey, SessionId, Command, Timeout, TTL, Status, Actions */
 .sandbox-approvals-table .mcp-table-head,
 .sandbox-approvals-table .mcp-table-row {

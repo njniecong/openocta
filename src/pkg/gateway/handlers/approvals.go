@@ -90,21 +90,71 @@ func toListEntry(rec approvalRecord, now time.Time, timeoutSeconds int) map[stri
 		"id":        rec.ID,
 		"sessionId": rec.SessionID,
 		"command":   rec.Command,
+		"paths":     rec.Paths,
+		"status":    status,
 		"createdAt": createdAt.UnixMilli(),
 		"timeoutAt": timeoutAt.UnixMilli(),
-		"status":    status,
 	}
-	if rec.ExpiresAt != nil && rec.State == string(security.ApprovalApproved) {
-		ttl := int(rec.ExpiresAt.Sub(now).Seconds())
-		if ttl < 0 {
-			ttl = 0
+	if rec.ApprovedAt != nil {
+		out["approvedAt"] = rec.ApprovedAt.UnixMilli()
+	}
+	if rec.Approver != "" {
+		out["approver"] = rec.Approver
+	}
+	if rec.Reason != "" {
+		out["reason"] = rec.Reason
+	}
+	if rec.AutoApproved {
+		out["autoApproved"] = true
+	}
+
+	// 过期时间与 TTL
+	var expiresAt time.Time
+	switch status {
+	case string(security.ApprovalPending):
+		expiresAt = timeoutAt
+	case string(security.ApprovalApproved):
+		if rec.ExpiresAt != nil {
+			expiresAt = *rec.ExpiresAt
+		} else {
+			expiresAt = time.Time{}
 		}
+	default:
+		expiresAt = time.Time{}
+	}
+	if !expiresAt.IsZero() {
+		out["expiresAt"] = expiresAt.UnixMilli()
+		ttl := int(expiresAt.Sub(now).Seconds())
 		out["ttlSeconds"] = ttl
+		if ttl < 0 {
+			out["expired"] = true
+		}
+	}
+	return out
+}
+
+func toWhitelistEntry(sessionID string, expiresAt time.Time, now time.Time) map[string]interface{} {
+	out := map[string]interface{}{
+		"sessionId": sessionID,
+		"status":    "whitelisted",
+	}
+	if !expiresAt.IsZero() {
+		out["expiresAt"] = expiresAt.UnixMilli()
+		ttl := int(expiresAt.Sub(now).Seconds())
+		out["ttlSeconds"] = ttl
+		if ttl < 0 {
+			out["expired"] = true
+			out["status"] = "whitelist_expired"
+		}
+	} else {
+		out["ttlSeconds"] = -1 // 永久免审
+		out["expiresAt"] = int64(0)
 	}
 	return out
 }
 
 // ApprovalsListHandler handles "approvals.list".
+// Returns approved, pending, denied records and session whitelist, each with status, expiresAt, ttlSeconds.
 func ApprovalsListHandler(opts HandlerOpts) error {
 	cfg := loadConfigFromContext(opts.Context)
 	env := func(k string) string {
@@ -123,14 +173,33 @@ func ApprovalsListHandler(opts HandlerOpts) error {
 	}
 
 	now := time.Now()
-	list := make([]map[string]interface{}, 0, len(snap.Records))
+	var approved, pending, denied []map[string]interface{}
 	for _, rec := range snap.Records {
-		list = append(list, toListEntry(rec, now, timeoutSeconds))
+		entry := toListEntry(rec, now, timeoutSeconds)
+		switch rec.State {
+		case string(security.ApprovalApproved):
+			approved = append(approved, entry)
+		case string(security.ApprovalPending):
+			pending = append(pending, entry) // 含 expired 状态
+		case string(security.ApprovalDenied):
+			denied = append(denied, entry)
+		default:
+			pending = append(pending, entry)
+		}
+	}
+
+	whitelisted := make([]map[string]interface{}, 0, len(snap.Whitelist))
+	for sessionID, expiresAt := range snap.Whitelist {
+		whitelisted = append(whitelisted, toWhitelistEntry(sessionID, expiresAt, now))
 	}
 
 	opts.Respond(true, map[string]interface{}{
-		"storePath": storeFile,
-		"entries":   list,
+		"storePath":   storeFile,
+		"approved":    approved,
+		"pending":     pending,
+		"denied":      denied,
+		"whitelisted": whitelisted,
+		"entries":     append(append(append([]map[string]interface{}{}, approved...), pending...), denied...), // 兼容旧版
 	}, nil, nil)
 	return nil
 }

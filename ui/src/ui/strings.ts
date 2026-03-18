@@ -217,12 +217,58 @@ type Strings = {
   approvalsTTL: string;
   approvalsStatus: string;
   approvalsApprove: string;
+  approvalsApproveOnce: string;
   approvalsWhitelist: string;
+  approvalsWhitelistSession: string;
   approvalsDeny: string;
   approvalsExpired: string;
   approvalsPending: string;
   approvalsNoEntries: string;
+  approvalsProcessed: string;
   approvalsViewSession: string;
+  approvalsSectionApproved: string;
+  approvalsSectionDenied: string;
+  approvalsSectionWhitelisted: string;
+  approvalsExpiresIn: string;
+  approvalsExpiresAt: string;
+  approvalsTtlPermanent: string;
+  approvalsReason: string;
+  securityOverviewTitle: string;
+  securityOverviewPreset: string;
+  securityOverviewSandbox: string;
+  securityOverviewCommandPolicy: string;
+  securityOverviewPendingApprovals: string;
+  securityPresetsTitle: string;
+  securityPresetsHint: string;
+  securityPresetOff: string;
+  securityPresetLoose: string;
+  securityPresetStandard: string;
+  securityPresetStrict: string;
+  securityPresetOffDesc: string;
+  securityPresetLooseDesc: string;
+  securityPresetStandardDesc: string;
+  securityPresetStrictDesc: string;
+  securitySectionCommandPolicy: string;
+  securitySectionCommandPolicyDesc: string;
+  securityDefaultPolicy: string;
+  securityDefaultDeny: string;
+  securityDefaultAsk: string;
+  securityDefaultAllow: string;
+  securityRulesList: string;
+  securityRuleAction: string;
+  securityRulePattern: string;
+  securityRuleType: string;
+  securityActionDeny: string;
+  securityActionAsk: string;
+  securityActionAllow: string;
+  securityAddRule: string;
+  securityAdvancedOptions: string;
+  securityMaxLength: string;
+  securityResourceCustom: string;
+  securityRulesHint: string;
+  securityRulesDenyHint: string;
+  securityRulesAskHint: string;
+  securityRulesAllowHint: string;
   modelsViewList: string;
   modelsViewCard: string;
   modelsTableName: string;
@@ -1086,7 +1132,7 @@ const EN: Strings = {
   sandboxBanFragments: "Keyword fuse",
   sandboxSectionConfig: "Sandbox config",
   sandboxSectionApprovals: "Approval queue",
-  securitySectionSandbox: "Sandbox",
+  securitySectionSandbox: "Environment boundary",
   securitySectionValidator: "命令校验",
   securitySectionApprovalQueue: "Approval Queue",
   securitySectionSandboxDesc: "Filesystem + network allowlist and optional resource limits.",
@@ -1112,12 +1158,58 @@ const EN: Strings = {
   approvalsTTL: "TTL",
   approvalsStatus: "Status",
   approvalsApprove: "Approve",
+  approvalsApproveOnce: "Approve once",
   approvalsWhitelist: "Whitelist",
+  approvalsWhitelistSession: "Whitelist session",
   approvalsDeny: "Deny",
   approvalsExpired: "Expired",
   approvalsPending: "Pending",
   approvalsNoEntries: "No approval requests.",
+  approvalsProcessed: "Processed",
+  securityOverviewTitle: "Current status",
+  securityOverviewPreset: "Preset",
+  securityOverviewSandbox: "Environment",
+  securityOverviewCommandPolicy: "Command policy",
+  securityOverviewPendingApprovals: "Pending approvals",
+  securityPresetsTitle: "Quick presets",
+  securityPresetsHint: "One-click apply, overrides current config. See table for scenarios.",
+  securityPresetOff: "All off",
+  securityPresetLoose: "Loose",
+  securityPresetStandard: "Standard",
+  securityPresetStrict: "Strict",
+  securityPresetOffDesc: "Disable all security: sandbox, command policy, and approval queue. Use for quick local testing only.",
+  securityPresetLooseDesc: "Sandbox on, wide paths/network. Only blocks extreme danger (sudo, rm -rf, dd, mkfs). Default: allow. No approval. Best for: local dev, debugging.",
+  securityPresetStandardDesc: "Sandbox on, moderate paths/network. Deny + some require approval (rm, mv, cp). Default: ask. Approval on. Best for: daily use, staging.",
+  securityPresetStrictDesc: "Sandbox on, tight paths/network. Deny + many require approval. Default: deny. Approval on, blocking. Best for: production, compliance.",
+  securitySectionCommandPolicy: "Command policy",
+  securitySectionCommandPolicyDesc: "Unified rules: deny → ask → allow. Unmatched commands use default policy.",
+  securityDefaultPolicy: "Default policy (when no rule matches)",
+  securityDefaultDeny: "Deny",
+  securityDefaultAsk: "Ask",
+  securityDefaultAllow: "Allow",
+  securityRulesList: "Rules",
+  securityRuleAction: "Action",
+  securityRulePattern: "Pattern",
+  securityRuleType: "Type",
+  securityActionDeny: "Deny",
+  securityActionAsk: "Ask",
+  securityActionAllow: "Allow",
+  securityAddRule: "Add rule",
+  securityAdvancedOptions: "Advanced: ban arguments, max length, secret patterns",
+  securityMaxLength: "Max command length",
+  securityResourceCustom: "Custom",
+  securityRulesHint: "One pattern per line. For deny: single word = command (e.g. sudo), with space = fragment (e.g. rm -rf).",
+  securityRulesDenyHint: "Commands/fragments to always deny. Single word = command, multi-word = fragment.",
+  securityRulesAskHint: "Commands that require approval before execution.",
+  securityRulesAllowHint: "Commands that bypass approval (auto-approved).",
   approvalsViewSession: "View session",
+  approvalsSectionApproved: "Approved",
+  approvalsSectionDenied: "Denied",
+  approvalsSectionWhitelisted: "Session whitelisted",
+  approvalsExpiresIn: "Expires in",
+  approvalsExpiresAt: "Expires at",
+  approvalsTtlPermanent: "Permanent",
+  approvalsReason: "Reason",
   modelsViewList: "List view",
   modelsViewCard: "Card view",
   modelsTableName: "Name",
@@ -1974,10 +2066,10 @@ const ZH: Strings = {
   sandboxBanFragments: "关键词熔断",
   sandboxSectionConfig: "沙箱配置",
   sandboxSectionApprovals: "审批队列",
-  securitySectionSandbox: "Sandbox",
+  securitySectionSandbox: "环境边界",
   securitySectionValidator: "命令校验",
   securitySectionApprovalQueue: "审批队列",
-  securitySectionSandboxDesc: "自定义约束文件系统/网络访问边界，并可配置资源限制。为安全，即使关闭也会提供一个默认的sandbox，指定默认目录和危险命令校验",
+  securitySectionSandboxDesc: "自定义约束文件系统/网络访问边界，并可配置资源限制。为安全，即使关闭也会提供一个默认的 sandbox，指定默认目录和危险命令校验。",
   securitySectionValidatorDesc: "对命令进行校验：禁止命令/参数/片段与长度限制。",
   securitySectionApprovalQueueDesc: "对敏感工具调用进行人工审批，支持按会话 TTL 免审白名单。",
   securityApprovalQueueEnabled: "启用审批队列",
@@ -2000,12 +2092,58 @@ const ZH: Strings = {
   approvalsTTL: "TTL",
   approvalsStatus: "状态",
   approvalsApprove: "批准",
+  approvalsApproveOnce: "本次放行",
   approvalsWhitelist: "全部放行",
+  approvalsWhitelistSession: "会话免审",
   approvalsDeny: "拒绝",
   approvalsExpired: "已过期",
   approvalsPending: "待审批",
   approvalsNoEntries: "暂无审批请求。",
+  approvalsProcessed: "已处理",
+  securityOverviewTitle: "当前状态",
+  securityOverviewPreset: "预设",
+  securityOverviewSandbox: "环境边界",
+  securityOverviewCommandPolicy: "命令策略",
+  securityOverviewPendingApprovals: "待审批",
+  securityPresetsTitle: "快速预设",
+  securityPresetsHint: "一键应用，覆盖当前配置。适用场景见下表。",
+  securityPresetOff: "全部关闭",
+  securityPresetLoose: "宽松",
+  securityPresetStandard: "标准",
+  securityPresetStrict: "严格",
+  securityPresetOffDesc: "关闭所有安全策略：沙箱、命令策略、审批队列。仅适用于快速本地测试。",
+  securityPresetLooseDesc: "沙箱开，路径/网络较宽。仅禁止极端危险命令（sudo、rm -rf、dd、mkfs）。默认放行，无审批。适用：本地开发、调试。",
+  securityPresetStandardDesc: "沙箱开，路径/网络适中。禁止 + 部分需审批（rm、mv、cp）。默认需审批，审批开。适用：日常使用、预发。",
+  securityPresetStrictDesc: "沙箱开，路径/网络收紧。禁止 + 大量需审批。默认拒绝，审批开且阻塞。适用：生产、合规。",
+  securitySectionCommandPolicy: "命令策略",
+  securitySectionCommandPolicyDesc: "统一规则：禁止 → 需审批 → 放行。未命中规则时按默认策略处理。",
+  securityDefaultPolicy: "默认策略（未命中任何规则时）",
+  securityDefaultDeny: "拒绝",
+  securityDefaultAsk: "需审批",
+  securityDefaultAllow: "放行",
+  securityRulesList: "规则列表",
+  securityRuleAction: "动作",
+  securityRulePattern: "模式",
+  securityRuleType: "类型",
+  securityActionDeny: "禁止",
+  securityActionAsk: "需审批",
+  securityActionAllow: "放行",
+  securityAddRule: "添加规则",
+  securityAdvancedOptions: "高级：禁止参数、最大长度、敏感词",
+  securityMaxLength: "最大命令长度",
+  securityResourceCustom: "自定义",
+  securityRulesHint: "每行一个模式。禁止规则：单词为命令（如 sudo），含空格为片段（如 rm -rf）。",
+  securityRulesDenyHint: "始终禁止的命令/片段。单词=命令，多词=片段。",
+  securityRulesAskHint: "需审批后才能执行的命令。",
+  securityRulesAllowHint: "免审批直接放行的命令。",
   approvalsViewSession: "查看会话",
+  approvalsSectionApproved: "已审批",
+  approvalsSectionDenied: "已拒绝",
+  approvalsSectionWhitelisted: "会话免审",
+  approvalsExpiresIn: "剩余",
+  approvalsExpiresAt: "过期时间",
+  approvalsTtlPermanent: "永久",
+  approvalsReason: "拒绝原因",
   modelsViewList: "列表",
   modelsViewCard: "卡片",
   modelsTableName: "名称",

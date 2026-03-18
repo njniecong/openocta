@@ -24,7 +24,7 @@ import { loadSessions } from "./controllers/sessions.ts";
 import { loadDigitalEmployees } from "./controllers/digital-employees.ts";
 import { loadTraceList } from "./controllers/llm-trace.ts";
 import { syncLlmTraceFromConfig } from "./app-llm-trace.ts";
-import { syncSandboxFromConfig } from "./app-sandbox.ts";
+import { syncSecurityFromConfig } from "./app-security.ts";
 import { loadApprovalsList } from "./controllers/approvals.ts";
 import { loadSkills } from "./controllers/skills.ts";
 import {
@@ -52,7 +52,7 @@ type SettingsHost = {
   logsAtBottom: boolean;
   eventLog: unknown[];
   eventLogBuffer: unknown[];
-  sandboxForm?: unknown;
+  securityForm?: unknown;
   basePath: string;
   agentsList?: AgentsListResult | null;
   agentsSelectedId?: string | null;
@@ -206,7 +206,7 @@ export async function refreshActiveTab(host: SettingsHost) {
   }
   if (host.tab === "sandbox") {
     await loadConfig(host as unknown as Parameters<typeof loadConfig>[0]);
-    host.sandboxForm = syncSandboxFromConfig(host as unknown as Parameters<typeof syncSandboxFromConfig>[0]);
+    host.securityForm = syncSecurityFromConfig(host as unknown as Parameters<typeof syncSecurityFromConfig>[0]);
     await loadApprovalsList(host as unknown as Parameters<typeof loadApprovalsList>[0]);
   }
   if (host.tab === "digitalEmployee") {
