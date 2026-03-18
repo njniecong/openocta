@@ -115,6 +115,7 @@ import {
   handleLlmTraceSearchChange,
   handleLlmTraceToggleEnabled,
   handleLlmTraceView,
+  handleLlmTraceDownload,
 } from "./app-llm-trace.ts";
 import {
   syncSecurityFromConfig,
@@ -1296,6 +1297,7 @@ export function renderApp(state: AppViewState) {
                 onSearchChange: (value) => handleLlmTraceSearchChange(state, value),
                 onToggleEnabled: () => handleLlmTraceToggleEnabled(state),
                 onView: (sessionId) => handleLlmTraceView(state, sessionId),
+                onDownload: (sessionId) => handleLlmTraceDownload(state, sessionId),
               })
             : nothing
         }

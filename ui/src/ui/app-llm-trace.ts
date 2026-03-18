@@ -79,3 +79,22 @@ export async function handleLlmTraceView(host: AppViewState, sessionId: string) 
     host.llmTraceError = String(err);
   }
 }
+
+export async function handleLlmTraceDownload(host: AppViewState, sessionId: string) {
+  try {
+    const content = await loadTraceContent(host, sessionId);
+    if (content) {
+      const blob = new Blob([content], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${sessionId}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      host.llmTraceError = "Failed to load trace content.";
+    }
+  } catch (err) {
+    host.llmTraceError = String(err);
+  }
+}

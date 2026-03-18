@@ -176,6 +176,7 @@ type Strings = {
   llmTraceFile: string;
   llmTraceFileSize: string;
   llmTraceView: string;
+  llmTraceDownload: string;
   llmTraceNoEntries: string;
   sandboxEnabled: string;
   sandboxDisabled: string;
@@ -1100,6 +1101,7 @@ const EN: Strings = {
   llmTraceFile: "File",
   llmTraceFileSize: "Size",
   llmTraceView: "View",
+  llmTraceDownload: "Download",
   llmTraceNoEntries: "No trace entries.",
   sandboxEnabled: "Enabled",
   sandboxDisabled: "Disabled",
@@ -2034,6 +2036,7 @@ const ZH: Strings = {
   llmTraceFile: "文件",
   llmTraceFileSize: "大小",
   llmTraceView: "查看",
+  llmTraceDownload: "下载",
   llmTraceNoEntries: "暂无 trace 记录。",
   sandboxEnabled: "已开启",
   sandboxDisabled: "已关闭",

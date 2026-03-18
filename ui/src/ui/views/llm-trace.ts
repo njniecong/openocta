@@ -15,6 +15,7 @@ export type LlmTraceProps = {
   onSearchChange: (value: string) => void;
   onToggleEnabled: () => void;
   onView: (sessionId: string) => void;
+  onDownload: (sessionId: string) => void;
 };
 
 function formatUpdatedAt(ms: number | undefined): string {
@@ -147,6 +148,12 @@ export function renderLlmTrace(props: LlmTraceProps) {
                                 @click=${() => props.onView(e.sessionId)}
                               >
                                 ${t("llmTraceView")}
+                              </button>
+                              <button
+                                class="btn btn--sm"
+                                @click=${() => props.onDownload(e.sessionId)}
+                              >
+                                ${t("llmTraceDownload")}
                               </button>
                             `
                           : nothing
