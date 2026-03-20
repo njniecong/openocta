@@ -62,6 +62,7 @@ export async function sendChatMessage(
   state: ChatState,
   message: string,
   attachments?: ChatAttachment[],
+  modelRef?: string | null,
 ): Promise<string | null> {
   if (!state.client || !state.connected) {
     return null;
@@ -82,10 +83,18 @@ export async function sendChatMessage(
   // Add image previews to the message for display
   if (hasAttachments) {
     for (const att of attachments) {
-      contentBlocks.push({
-        type: "image",
-        source: { type: "base64", media_type: att.mimeType, data: att.dataUrl },
-      });
+      const kind = att.kind ?? (att.mimeType?.startsWith("image/") ? "image" : "file");
+      if (kind === "image") {
+        contentBlocks.push({
+          type: "image",
+          source: { type: "base64", media_type: att.mimeType, data: att.dataUrl },
+        });
+      } else {
+        contentBlocks.push({
+          type: "text",
+          text: `[附件] ${att.filename || "file"} (${att.mimeType || "application/octet-stream"})`,
+        });
+      }
     }
   }
 
@@ -113,10 +122,13 @@ export async function sendChatMessage(
           if (!parsed) {
             return null;
           }
+          const kind = att.kind ?? (att.mimeType?.startsWith("image/") ? "image" : "file");
           return {
-            type: "image",
+            type: kind,
             mimeType: parsed.mimeType,
             content: parsed.content,
+            filename: att.filename,
+            sizeBytes: att.sizeBytes,
           };
         })
         .filter((a): a is NonNullable<typeof a> => a !== null)
@@ -129,6 +141,7 @@ export async function sendChatMessage(
       deliver: false,
       idempotencyKey: runId,
       attachments: apiAttachments,
+      modelRef: modelRef ?? undefined,
     });
     return runId;
   } catch (err) {

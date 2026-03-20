@@ -9,7 +9,7 @@
 > English version: see `README.en.md`.  
 > 英文说明请查看 `README.en.md`。
 
-OpenOcta 基于 [OpenClaw](https://github.com/openocta/openocta) 的 Gateway 协议和 Control UI，重写为 **单一 Go 二进制后端 + 内嵌前端**，面向无桌面服务器环境下的运维、可观测与自动化场景。
+OpenOcta 参考 [OpenClaw](https://github.com/openocta/openocta) 的 设计思想，完全自己重构为 **单一 Go 二进制后端 + 内嵌前端**，面向运维、可观测与自动化场景。
 
 ---
 
@@ -86,6 +86,10 @@ export ANTHROPIC_API_KEY=your-key
 |---------------|------------------------------------|
 | Linux / macOS | `~/.openocta/openocta.json`       |
 | Windows       | `%APPDATA%\openocta\openocta.json` |
+
+### macOS 桌面安装（.dmg）
+
+- **`.dmg`**：挂载后路径在 **`/Volumes/...`**（只读映像），将应用拖入「应用程序」或按首次运行弹窗安装到 **`/Applications/OpenOcta.app`**；**不要**把 `/Volumes` 下内容当成已安装副本，应在访达中**推出**磁盘映像。详见 `deploy/dist-README.md`。
 
 ---
 

@@ -12,13 +12,15 @@ snapshot:
 
 before:
   hooks:
-    - cp  src/.env src/embed/
-    - cp -r src/skills src/embed/
+    # 从 git tag 设置版本到 src/.env 和 ui/package.json
+    - ./scripts/set-version.sh
+    - cp src/.env src/embed/
     - make ui
     - ls src/embed/
     - cd src && go mod download
 
 builds:
+  # Linux 服务端二进制（rpm/deb/tar.gz），Windows/macOS 桌面版由 Wails 构建
   - id: openocta
     dir: src
     main: ./cmd/openocta
@@ -27,8 +29,6 @@ builds:
       - -trimpath
     goos:
       - linux
-      - darwin
-      - windows
     goarch:
       - amd64
       - arm64
@@ -37,12 +37,9 @@ builds:
       - -X github.com/openocta/openocta/pkg/version.Version={{.Version}}
 
 archives:
-  # 各平台压缩包：二进制 + src/docs 说明文档
+  # Linux 压缩包：openocta + 说明文档
   - id: default
     wrap_in_directory: true
-    format_overrides:
-      - goos: windows
-        format: zip
     builds:
       - openocta
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -53,8 +50,6 @@ archives:
         dst: docs
       - src: deploy/dist-README.md
         dst: README.md
-      - src: deploy/run-openocta.bat
-        dst: run-openocta.bat
 
   # 独立说明文档压缩包，输出到 dist 目录
   - id: docs

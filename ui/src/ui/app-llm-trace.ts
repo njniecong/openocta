@@ -62,22 +62,29 @@ export function handleLlmTraceToggleEnabled(host: AppViewState) {
 }
 
 export async function handleLlmTraceView(host: AppViewState, sessionId: string) {
+  host.llmTraceViewingSessionId = sessionId;
+  host.llmTraceViewContent = null;
+  host.llmTraceViewLoading = true;
+  host.llmTraceError = null;
   try {
     const content = await loadTraceContent(host, sessionId);
     if (content) {
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.write(content);
-        w.document.close();
-      } else {
-        host.llmTraceError = "Failed to open new window (popup may be blocked)";
-      }
+      host.llmTraceViewContent = content;
     } else {
       host.llmTraceError = "Failed to load trace content.";
+      host.llmTraceViewingSessionId = null;
     }
   } catch (err) {
     host.llmTraceError = String(err);
+    host.llmTraceViewingSessionId = null;
+  } finally {
+    host.llmTraceViewLoading = false;
   }
+}
+
+export function handleLlmTraceBack(host: AppViewState) {
+  host.llmTraceViewContent = null;
+  host.llmTraceViewingSessionId = null;
 }
 
 export async function handleLlmTraceDownload(host: AppViewState, sessionId: string) {

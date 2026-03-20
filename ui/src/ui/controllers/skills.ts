@@ -1,3 +1,4 @@
+import { gatewayHttpBase } from "../gateway-url.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { SkillStatusReport } from "../types.ts";
 
@@ -11,6 +12,7 @@ export type SkillsState = {
   skillEdits: Record<string, string>;
   skillMessages: SkillMessageMap;
   gatewayUrl?: string;
+  token?: string;
   // Skill detail doc (SKILL.md content)
   skillsSkillDocContent?: string | null;
   skillsSkillDocLoading?: boolean;
@@ -167,41 +169,41 @@ export type SkillsUploadResult = {
   template?: string;
 };
 
-export function gatewayHttpBase(gatewayUrl: string): string {
-  return gatewayUrl.replace(/^ws/, "http");
-}
-
 export async function uploadSkill(
   state: SkillsState,
   name: string,
   file: File,
 ): Promise<SkillsUploadResult> {
-  const url = state.gatewayUrl ? gatewayHttpBase(state.gatewayUrl) : "";
+  const url = state.gatewayUrl ? gatewayHttpBase(state.gatewayUrl as string) : "";
   if (!url) {
     return { ok: false, error: "Gateway URL not configured" };
   }
   const form = new FormData();
   form.append("name", name.trim());
   form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (state.token?.trim()) {
+    headers["Authorization"] = `Bearer ${state.token.trim()}`;
+  }
   try {
     const res = await fetch(`${url.replace(/\/$/, "")}/api/skills/upload`, {
       method: "POST",
+      headers,
       body: form,
     });
     const data = (await res.json()) as { ok?: boolean; error?: string; template?: string };
     if (!res.ok) {
-      return {
-        ok: false,
-        error: data.error ?? `Upload failed (${res.status})`,
-        template: data.template,
-      };
+      const errMsg =
+        res.status === 401
+          ? "认证失败：网关令牌无效或未提供，请在 Overview 中配置正确的 Gateway Token"
+          : (data.error ?? `Upload failed (${res.status})`);
+      return { ok: false, error: errMsg, template: data.template };
     }
     return { ok: true };
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    const raw = err instanceof Error ? err.message : String(err);
+    const msg = raw === "Failed to fetch" ? "网络请求失败，请检查网络连接" : raw;
+    return { ok: false, error: msg };
   }
 }
 

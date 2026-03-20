@@ -54,6 +54,36 @@
   opacity: 0.7;
 }
 
+.chat-group-duration {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+/* Thinking (collapsible) */
+.chat-thinking {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+:root[data-theme="light"] .chat-thinking {
+  background: rgba(16, 24, 40, 0.02);
+}
+
+.chat-thinking__summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  user-select: none;
+}
+
+.chat-thinking__content {
+  margin-top: 8px;
+}
+
 /* Avatar Styles */
 .chat-avatar {
   width: 40px;

@@ -10,11 +10,15 @@ export type LlmTraceProps = {
   search: string;
   enabled: boolean;
   saving: boolean;
+  viewContent: string | null;
+  viewingSessionId: string | null;
+  viewLoading: boolean;
   onRefresh: () => void;
   onModeChange: (mode: "active" | "all") => void;
   onSearchChange: (value: string) => void;
   onToggleEnabled: () => void;
   onView: (sessionId: string) => void;
+  onBack: () => void;
   onDownload: (sessionId: string) => void;
 };
 
@@ -46,7 +50,49 @@ function filterEntries(entries: TraceListEntry[], search: string): TraceListEntr
   );
 }
 
+/** 注入滚动样式，确保 trace 内容可完整显示并支持滚动 */
+function ensureTraceContentScrollable(html: string): string {
+  const scrollStyle =
+    "<style>html,body{overflow-y:auto!important;overflow-x:auto!important;min-height:100%;}</style>";
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${scrollStyle}</head>`);
+  }
+  if (html.includes("<body")) {
+    return html.replace("<body", `<head>${scrollStyle}</head><body`);
+  }
+  return scrollStyle + html;
+}
+
 export function renderLlmTrace(props: LlmTraceProps) {
+  const isViewing = props.viewingSessionId != null;
+
+  if (isViewing) {
+    return html`
+      <section class="card llm-trace-detail">
+        <div class="row" style="align-items: center; gap: 12px; margin-bottom: 16px;">
+          <button type="button" class="btn btn--sm" @click=${props.onBack}>
+            ← ${t("llmTraceBack")}
+          </button>
+          <span class="muted" style="font-size: 14px;">${props.viewingSessionId}</span>
+        </div>
+        ${props.viewLoading
+          ? html`<div class="muted" style="padding: 24px; text-align: center;">${t("commonLoading")}</div>`
+          : props.viewContent
+            ? html`
+                <div class="llm-trace-iframe-wrap">
+                  <iframe
+                    class="llm-trace-iframe"
+                    srcdoc=${ensureTraceContentScrollable(props.viewContent)}
+                    sandbox="allow-same-origin allow-scripts"
+                    title=${props.viewingSessionId ?? "Trace"}
+                  ></iframe>
+                </div>
+              `
+            : html`<div class="callout danger">${props.error ?? t("commonNA")}</div>`}
+      </section>
+    `;
+  }
+
   const entries = props.result?.entries ?? [];
   const filtered = filterEntries(entries, props.search);
 

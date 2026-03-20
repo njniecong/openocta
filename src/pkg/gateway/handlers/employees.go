@@ -8,6 +8,7 @@ import (
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/employees"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
+	"github.com/openocta/openocta/pkg/installmetadata"
 )
 
 // EmployeesListHandler 处理 "employees.list"：返回所有数字员工模板（内置 + 用户自建）。
@@ -52,6 +53,8 @@ func EmployeesCreateHandler(opts HandlerOpts) error {
 	desc, _ := opts.Params["description"].(string)
 	rawID, _ := opts.Params["id"].(string)
 	prompt, _ := opts.Params["prompt"].(string)
+	typeVal, _ := opts.Params["type"].(string)
+	fromVal, _ := opts.Params["from"].(string)
 	enabledVal, hasEnabled := opts.Params["enabled"].(bool)
 	enabled := true
 	if hasEnabled {
@@ -114,9 +117,17 @@ func EmployeesCreateHandler(opts HandlerOpts) error {
 			if mcpServers != nil {
 				m.McpServers = mcpServers
 			}
+			if typeVal != "" {
+				m.Type = strings.TrimSpace(typeVal)
+			}
+			if fromVal != "" {
+				m.From = strings.TrimSpace(fromVal)
+			}
 		}
 	}
 	if m == nil {
+		typeTrimmed := strings.TrimSpace(typeVal)
+		fromTrimmed := strings.TrimSpace(fromVal)
 		m = &employees.Manifest{
 			ID:          id,
 			Name:        name,
@@ -126,6 +137,8 @@ func EmployeesCreateHandler(opts HandlerOpts) error {
 			Builtin:     false,
 			SkillIDs:    skillIDs,
 			McpServers:  mcpServers,
+			Type:        typeTrimmed, // 空表示「其它」
+			From:        fromTrimmed,
 		}
 	}
 	if err := employees.SaveManifest(m, env); err != nil {
@@ -165,6 +178,7 @@ func EmployeesDeleteHandler(opts HandlerOpts) error {
 		}, nil)
 		return nil
 	}
+	_ = installmetadata.RemoveByLocalID(env, "employee", id)
 	opts.Respond(true, map[string]interface{}{"ok": true}, nil, nil)
 	return nil
 }

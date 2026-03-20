@@ -46,11 +46,12 @@ function formatApprovalTime(ms: number | undefined): string {
 
 export function renderSandbox(props: SandboxProps) {
   const s = props.sandbox ?? {};
-  const enabled = s.enabled !== false;
+  // 仅当 explicitly true 时显示为启用，false 或 undefined 均显示为禁用
+  const enabled = s.enabled === true;
   const allowedPaths = joinLines(ensureArray(s.allowedPaths));
   const networkAllow = joinLines(ensureArray(s.networkAllow));
   const validator = s.validator ?? {};
-  const validatorEnabled = (validator as { enabled?: boolean }).enabled;
+  const validatorEnabled = (validator as { enabled?: boolean }).enabled === true;
   const approvalQueue = (s as { approvalQueue?: { enabled?: boolean; timeoutSeconds?: number; blockOnApproval?: boolean; allow?: string[]; ask?: string[]; deny?: string[] } }).approvalQueue ?? {};
   const banCommands = joinLines(ensureArray(validator.banCommands));
   const banArguments = joinLines(ensureArray(validator.banArguments));

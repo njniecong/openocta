@@ -4,9 +4,7 @@ import type { CronFormState } from "../ui-types.ts";
 import { formatAgo, formatMs } from "../format.ts";
 import { pathForTab } from "../navigation.ts";
 import {
-  formatCronPayload,
   formatCronSchedule,
-  formatCronState,
   formatNextRun,
 } from "../presenter.ts";
 import { t } from "../strings.js";
@@ -31,6 +29,7 @@ export type CronProps = {
   onRun: (job: CronJob) => void;
   onRemove: (job: CronJob) => void;
   onLoadRuns: (jobId: string) => void;
+  onShowHistory?: (jobId: string) => void;
 };
 
 function buildChannelOptions(props: CronProps): string[] {
@@ -60,12 +59,8 @@ function resolveChannelLabel(props: CronProps, channel: string): string {
   return props.channelLabels?.[channel] ?? channel;
 }
 
-export function renderCron(props: CronProps) {
+export function renderCronConfig(props: CronProps) {
   const channelOptions = buildChannelOptions(props);
-  const selectedJob =
-    props.runsJobId == null ? undefined : props.jobs.find((job) => job.id === props.runsJobId);
-  const selectedRunTitle = selectedJob?.name ?? props.runsJobId ?? "(select a job)";
-  const orderedRuns = props.runs.toSorted((a, b) => b.ts - a.ts);
   return html`
     <section class="grid grid-cols-2">
       <div class="card">
@@ -294,30 +289,52 @@ export function renderCron(props: CronProps) {
             `
           : html`
             <div class="list" style="margin-top: 12px;">
-              ${props.jobs.map((job) => renderJob(job, props))}
+              ${props.jobs.map((job) => renderJob(job, props, { mode: "config" }))}
             </div>
           `
       }
     </section>
+  `;
+}
 
-    <section class="card" style="margin-top: 18px;">
-      <div class="card-title">${t("cronRunHistory")}</div>
-      <div class="card-sub">${t("cronRunHistorySub")} ${props.runsJobId ?? t("cronSelectJob")}.</div>
-      ${
-        props.runsJobId == null
-          ? html`
-              <div class="muted" style="margin-top: 12px">${t("cronSelectJobToInspect")}</div>
-            `
-          : orderedRuns.length === 0
-            ? html`
-                <div class="muted" style="margin-top: 12px">${t("cronNoRunsYet")}</div>
-              `
+export function renderCronHistory(props: CronProps) {
+  const selectedJob =
+    props.runsJobId == null ? undefined : props.jobs.find((job) => job.id === props.runsJobId);
+  const orderedRuns = props.runs.toSorted((a, b) => b.ts - a.ts);
+
+  return html`
+    <section class="grid grid-cols-2">
+      <div class="card">
+        <div class="card-title">${t("cronJobsTitle")}</div>
+        <div class="card-sub">${t("cronJobsSub")}</div>
+        ${
+          props.jobs.length === 0
+            ? html`<div class="muted" style="margin-top: 12px">${t("cronNoJobsYet")}</div>`
             : html`
-              <div class="list" style="margin-top: 12px;">
-                ${orderedRuns.map((entry) => renderRun(entry, props.basePath))}
-              </div>
-            `
-      }
+                <div class="list" style="margin-top: 12px;">
+                  ${props.jobs.map((job) => renderJob(job, props, { mode: "history" }))}
+                </div>
+              `
+        }
+      </div>
+
+      <div class="card">
+        <div class="card-title">${t("cronRunHistory")}</div>
+        <div class="card-sub">
+          ${t("cronRunHistorySub")} ${selectedJob?.name ?? props.runsJobId ?? t("cronSelectJob")}.
+        </div>
+        ${
+          props.runsJobId == null
+            ? html`<div class="muted" style="margin-top: 12px">${t("cronSelectJobToInspect")}</div>`
+            : orderedRuns.length === 0
+              ? html`<div class="muted" style="margin-top: 12px">${t("cronNoRunsYet")}</div>`
+              : html`
+                  <div class="list" style="margin-top: 12px;">
+                    ${orderedRuns.map((entry) => renderRun(entry, props.basePath))}
+                  </div>
+                `
+        }
+      </div>
     </section>
   `;
 }
@@ -391,11 +408,24 @@ function renderScheduleFields(props: CronProps) {
   `;
 }
 
-function renderJob(job: CronJob, props: CronProps) {
+function renderJob(
+  job: CronJob,
+  props: CronProps,
+  opts: { mode: "config" | "history" },
+) {
   const isSelected = props.runsJobId === job.id;
   const itemClass = `list-item list-item-clickable cron-job${isSelected ? " list-item-selected" : ""}`;
   return html`
-    <div class=${itemClass} @click=${() => props.onLoadRuns(job.id)}>
+    <div
+      class=${itemClass}
+      @click=${() => {
+        if (opts.mode === "config") {
+          props.onShowHistory?.(job.id);
+          return;
+        }
+        props.onLoadRuns(job.id);
+      }}
+    >
       <div class="list-main">
         <div class="list-title">${job.name}</div>
         <div class="list-sub">${formatCronSchedule(job)}</div>
@@ -439,6 +469,10 @@ function renderJob(job: CronJob, props: CronProps) {
             ?disabled=${props.busy}
             @click=${(event: Event) => {
               event.stopPropagation();
+              if (opts.mode === "config") {
+                props.onShowHistory?.(job.id);
+                return;
+              }
               props.onLoadRuns(job.id);
             }}
           >

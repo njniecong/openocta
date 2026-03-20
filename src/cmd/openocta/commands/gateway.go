@@ -113,9 +113,20 @@ func runGateway(cmd *cobra.Command, _ []string) error {
 	if verbose {
 		os.Setenv("OPENOCTA_VERBOSE", "1")
 	}
-	addr := fmt.Sprintf(":%d", port)
-	cmd.Printf("Starting Gateway on %s (OpenOcta %s)\n", addr, version.Version)
-	logging.Info("Gateway starting addr=%s version=%s", addr, version.Version)
+
+	cfg, cfgErr := config.Load(env)
+	if cfgErr != nil {
+		logging.Warn("Gateway config load failed: %v", cfgErr)
+	}
+	var cfgMode *string
+	if cfg != nil && cfg.Gateway != nil {
+		cfgMode = cfg.Gateway.Mode
+	}
+	runMode := paths.ResolveRunMode(env, cfgMode)
+	addr := paths.ResolveGatewayAddr(port, runMode)
+
+	cmd.Printf("Starting Gateway on %s (mode=%s, OpenOcta %s)\n", addr, runMode, version.Version)
+	logging.Info("Gateway starting addr=%s mode=%s version=%s", addr, runMode, version.Version)
 	srv := gatewayhttp.NewServer(addr, version.Version)
 
 	go func() {

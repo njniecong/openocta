@@ -106,7 +106,7 @@ function resolveOnboardingMode(): boolean {
 export class OpenClawApp extends LitElement {
   @state() settings: UiSettings = loadSettings();
   @state() password = "";
-  @state() tab: Tab = "chat";
+  @state() tab: Tab = "message";
   @state() onboarding = resolveOnboardingMode();
   @state() connected = false;
   @state() theme: ThemeMode = this.settings.theme ?? "light";
@@ -134,6 +134,7 @@ export class OpenClawApp extends LitElement {
   @state() compactionStatus: CompactionStatus | null = null;
   @state() chatAvatarUrl: string | null = null;
   @state() chatThinkingLevel: string | null = null;
+  @state() chatModelRef: string | null = null;
   @state() chatQueue: ChatQueueItem[] = [];
   @state() chatAttachments: ChatAttachment[] = [];
   // Sidebar state for tool output viewing
@@ -214,6 +215,9 @@ export class OpenClawApp extends LitElement {
   @state() llmTraceSearch = "";
   @state() llmTraceEnabled = false;
   @state() llmTraceSaving = false;
+  @state() llmTraceViewContent: string | null = null;
+  @state() llmTraceViewingSessionId: string | null = null;
+  @state() llmTraceViewLoading = false;
   @state() securityForm: import("./controllers/security.js").SecurityConfigForm | Record<string, unknown> | null = null;
   @state() approvalsLoading = false;
   @state() approvalsResult: import("./controllers/approvals.js").ApprovalsListResult | null = null;
@@ -274,6 +278,7 @@ export class OpenClawApp extends LitElement {
 
   @state() sessionsLoading = false;
   @state() sessionsResult: SessionsListResult | null = null;
+  @state() sessionEditingKey: string | null = null;
   @state() sessionsError: string | null = null;
   @state() sessionsFilterActive = "";
   @state() sessionsFilterLimit = "120";
@@ -402,6 +407,58 @@ export class OpenClawApp extends LitElement {
   @state() digitalEmployeeEditEnabled = true;
   @state() digitalEmployeeEditError: string | null = null;
   @state() digitalEmployeeEditBusy = false;
+
+  // Remote catalogs (employee market / skill library / tool library / tutorials)
+  @state() employeeMarketLoadedOnce = false;
+  @state() employeeMarketLoading = false;
+  @state() employeeMarketError: string | null = null;
+  @state() employeeMarketQuery = "";
+  @state() employeeMarketCategory = "__all__";
+  @state() employeeMarketViewMode: "list" | "card" = "card";
+  @state() employeeMarketItems: import("./controllers/remote-market.ts").EmployeeListItem[] = [];
+  @state() employeeMarketSelectedId: number | string | null = null;
+  @state() employeeMarketSelectedDetail: import("./controllers/remote-market.ts").EmployeeDetail | null = null;
+  @state() employeeMarketInstalledRemoteIds = new Set<string>();
+  @state() employeeMarketRemoteToLocal: Record<string, string> = {};
+  @state() employeeMarketInstallingId: string | null = null;
+
+  @state() skillLibraryLoadedOnce = false;
+  @state() skillLibraryLoading = false;
+  @state() skillLibraryError: string | null = null;
+  @state() skillLibraryQuery = "";
+  @state() skillLibraryCategory = "__all__";
+  @state() skillLibraryStatus = "__all__";
+  @state() skillLibraryItems: import("./controllers/remote-market.ts").SkillListItem[] = [];
+  @state() skillLibrarySelectedFolder: string | null = null;
+  @state() skillLibrarySelectedDetail: import("./controllers/remote-market.ts").SkillDetail | null = null;
+  @state() skillLibraryInstallingFolder: string | null = null;
+  @state() skillLibraryInstallSuccess: string | null = null;
+
+  @state() toolLibraryLoadedOnce = false;
+  @state() toolLibraryLoading = false;
+  @state() toolLibraryError: string | null = null;
+  @state() toolLibraryQuery = "";
+  @state() toolLibraryCategory = "__all__";
+  @state() toolLibraryItems: import("./controllers/remote-market.ts").McpListItem[] = [];
+  @state() toolLibrarySelectedId: number | null = null;
+  @state() toolLibrarySelectedDetail: import("./controllers/remote-market.ts").McpDetail | null = null;
+  @state() toolLibraryInstalledRemoteIds = new Set<string>();
+  @state() toolLibraryInstalledMcpMap = new Map<number, string>();
+  @state() toolLibraryInstallingId: number | null = null;
+  @state() toolLibraryMcpEditModalOpen = false;
+  @state() toolLibraryMcpEditServerKey = "";
+
+  @state() tutorialsLoadedOnce = false;
+  @state() tutorialsLoading = false;
+  @state() tutorialsError: string | null = null;
+  @state() tutorialCategories: import("./controllers/remote-market.ts").EduCategory[] = [];
+  @state() tutorialsQuery = "";
+  @state() tutorialsSelectedCategoryId: number | null = null;
+  @state() tutorialsPlayingLink: string | null = null;
+  @state() aboutUninstallModalOpen = false;
+  @state() aboutUninstallMode: "program" | "full" = "program";
+  @state() aboutUninstallLoading = false;
+  @state() aboutUninstallError: string | null = null;
 
   @state() debugLoading = false;
   @state() debugStatus: StatusSummary | null = null;

@@ -84,9 +84,19 @@ function formatEnvForEdit(env: Record<string, string> | undefined): string {
 }
 
 function isAddFormValid(props: McpProps): boolean {
-  if (props.addEditMode === "raw") return !props.addRawError;
-  const d = props.addDraft;
-  const t = props.addConnectionType ?? "stdio";
+  return isMcpAddFormValid(props.addDraft, props.addConnectionType, props.addEditMode, props.addRawError);
+}
+
+/** Exported for reuse in tool-library add modal. */
+export function isMcpAddFormValid(
+  draft: McpServerEntry | Record<string, unknown> | undefined,
+  connectionType: "stdio" | "url" | "service",
+  editMode: "form" | "raw",
+  rawError: string | null,
+): boolean {
+  if (editMode === "raw") return !rawError;
+  const d = draft as McpServerEntry | undefined;
+  const t = connectionType ?? "stdio";
   if (t === "stdio") return !!d?.command?.trim();
   if (t === "url") return !!d?.url?.trim();
   if (t === "service") return !!d?.service?.trim() && !!d?.serviceUrl?.trim();
@@ -108,7 +118,8 @@ function parseEnvFromEdit(text: string): Record<string, string> {
   return out;
 }
 
-function renderAddConnectionTypeFields(
+/** Exported for reuse in tool-library add modal. */
+export function renderMcpAddConnectionFields(
   type: "stdio" | "url" | "service",
   draft: McpServerEntry | undefined,
   onPatch: (p: Partial<McpServerEntry>) => void,
@@ -271,6 +282,154 @@ function renderEditConnectionTypeFields(
   `;
 }
 
+/** MCP 编辑弹框的 props，可独立于 MCP 页面使用（如工具库） */
+export type McpEditModalProps = {
+  open: boolean;
+  serverKey: string;
+  entry: McpServerEntry;
+  editMode: "form" | "raw";
+  editConnectionType: "stdio" | "url" | "service";
+  formDirty: boolean;
+  rawJson: string;
+  rawError: string | null;
+  saving: boolean;
+  onFormPatch: (key: string, patch: Partial<McpServerEntry>) => void;
+  onRawChange: (key: string, json: string) => void;
+  onEditModeChange: (mode: "form" | "raw") => void;
+  onEditConnectionTypeChange: (type: "stdio" | "url" | "service") => void;
+  onSave: () => void;
+  onCancel: () => void;
+};
+
+function resolveServerLabelForModal(key: string): string {
+  return resolveServerLabel(key);
+}
+
+export function renderMcpEditModal(props: McpEditModalProps) {
+  if (!props.open) return nothing;
+  const { serverKey, entry } = props;
+  return html`
+    <div class="modal-overlay" @click=${props.onCancel}>
+      <div class="modal card" style="max-width: 560px;" @click=${(e: Event) => e.stopPropagation()}>
+        <div class="card-title">${resolveServerLabelForModal(serverKey)} ${t("configSettingsTitle")}</div>
+        <div class="row" style="margin-bottom: 12px; gap: 8px;">
+          <button
+            class="btn ${props.editMode === "form" ? "primary" : ""}"
+            @click=${() => props.onEditModeChange("form")}
+          >
+            ${t("mcpFormMode")}
+          </button>
+          <button
+            class="btn ${props.editMode === "raw" ? "primary" : ""}"
+            @click=${() => {
+              props.onEditModeChange("raw");
+              props.onRawChange(serverKey, JSON.stringify(entry, null, 2));
+            }}
+          >
+            ${t("mcpRawMode")}
+          </button>
+        </div>
+        ${
+          props.editMode === "form"
+            ? html`
+                <div class="config-form">
+                  <div class="field">
+                    <span>${t("mcpEnabled")}</span>
+                    <div class="row" style="align-items: center; gap: 8px;">
+                      <input
+                        type="checkbox"
+                        ?checked=${entry.enabled !== false}
+                        @change=${(e: Event) =>
+                          props.onFormPatch(serverKey, {
+                            enabled: (e.target as HTMLInputElement).checked,
+                          })}
+                      />
+                    </div>
+                  </div>
+                  <div class="mcp-connection-tabs" style="display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--input, #333); padding-bottom: 4px;">
+                    <button
+                      type="button"
+                      class="btn ${(props.editConnectionType ?? "stdio") === "stdio" ? "primary" : ""}"
+                      style="flex: 1; min-width: 0;"
+                      @click=${() => props.onEditConnectionTypeChange("stdio")}
+                    >
+                      ${t("mcpConnectionTypeStdio")}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn ${(props.editConnectionType ?? "stdio") === "url" ? "primary" : ""}"
+                      style="flex: 1; min-width: 0;"
+                      @click=${() => props.onEditConnectionTypeChange("url")}
+                    >
+                      ${t("mcpConnectionTypeUrl")}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn ${(props.editConnectionType ?? "stdio") === "service" ? "primary" : ""}"
+                      style="flex: 1; min-width: 0;"
+                      @click=${() => props.onEditConnectionTypeChange("service")}
+                    >
+                      ${t("mcpConnectionTypeService")}
+                    </button>
+                  </div>
+                  <div class="mcp-connection-fields" style="margin-bottom: 12px;">
+                    ${renderEditConnectionTypeFields(
+                      props.editConnectionType === "stdio" || props.editConnectionType === "url" || props.editConnectionType === "service"
+                        ? props.editConnectionType
+                        : "stdio",
+                      entry,
+                      serverKey,
+                      props.onFormPatch,
+                    )}
+                  </div>
+                  <div class="field">
+                    <span>${t("mcpToolPrefix")}</span>
+                    <input
+                      type="text"
+                      .value=${entry.toolPrefix ?? ""}
+                      placeholder="Optional"
+                      @input=${(e: Event) =>
+                        props.onFormPatch(serverKey, {
+                          toolPrefix: (e.target as HTMLInputElement).value,
+                        })}
+                    />
+                  </div>
+                </div>
+              `
+            : html`
+                <div class="field">
+                  <span>${t("mcpRawJson")}</span>
+                  <textarea
+                    style="min-height: 200px; font-family: var(--mono);"
+                    .value=${props.rawJson}
+                    @input=${(e: Event) =>
+                      props.onRawChange(serverKey, (e.target as HTMLTextAreaElement).value)}
+                  ></textarea>
+                  ${
+                    props.rawError
+                      ? html`<div class="callout danger" style="margin-top: 8px;">${props.rawError}</div>`
+                      : nothing
+                  }
+                </div>
+              `
+        }
+        <div class="row" style="margin-top: 16px; gap: 8px;">
+          <button
+            class="btn primary"
+            ?disabled=${props.saving || (!props.formDirty && props.editMode === "form")}
+            @click=${props.onSave}
+          >
+            ${props.saving ? t("commonSaving") : t("commonSave")}
+          </button>
+          <button class="btn" ?disabled=${props.saving} @click=${props.onCancel}>
+            ${t("commonCancel")}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function renderMcp(props: McpProps) {
   const entries = Object.entries(props.servers ?? {});
   const selected = props.selectedKey ? props.servers[props.selectedKey] : null;
@@ -382,7 +541,7 @@ export function renderMcp(props: McpProps) {
                               </button>
                             </div>
                             <div class="mcp-connection-fields" style="margin-bottom: 12px;">
-                              ${renderAddConnectionTypeFields(
+                              ${renderMcpAddConnectionFields(
                                 props.addConnectionType === "stdio" || props.addConnectionType === "url" || props.addConnectionType === "service"
                                   ? props.addConnectionType
                                   : "stdio",

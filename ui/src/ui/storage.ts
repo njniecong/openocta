@@ -1,5 +1,9 @@
 const KEY = "openclaw.control.settings.v1";
 
+/** Default gateway token when user does not fill in. Must match backend DefaultGatewayToken. */
+export const DEFAULT_GATEWAY_TOKEN = "edc146993b5ae0b1544c3137cc888f94436cf11e1952cff6";
+
+import { parseGatewayHost } from "./gateway-url.ts";
 import type { ThemeMode } from "./theme.ts";
 
 export type UiSettings = {
@@ -16,14 +20,20 @@ export type UiSettings = {
 };
 
 export function loadSettings(): UiSettings {
-  const defaultUrl = (() => {
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${location.host}`;
+  const defaultHost = (() => {
+    // When running the Control UI via Vite (default port 5173),
+    // default to the local gateway server (127.0.0.1:18900).
+    // In production (served by the gateway), use same-origin (host:port).
+    const isViteDev = typeof location !== "undefined" && location.port === "5173";
+    if (isViteDev) {
+      return "127.0.0.1:18900";
+    }
+    return typeof location !== "undefined" ? location.host : "127.0.0.1:18900";
   })();
 
   const defaults: UiSettings = {
-    gatewayUrl: defaultUrl,
-    token: "",
+    gatewayUrl: defaultHost,
+    token: DEFAULT_GATEWAY_TOKEN,
     sessionKey: "main",
     lastActiveSessionKey: "main",
     theme: "light",
@@ -43,9 +53,12 @@ export function loadSettings(): UiSettings {
     return {
       gatewayUrl:
         typeof parsed.gatewayUrl === "string" && parsed.gatewayUrl.trim()
-          ? parsed.gatewayUrl.trim()
+          ? parseGatewayHost(parsed.gatewayUrl.trim())
           : defaults.gatewayUrl,
-      token: typeof parsed.token === "string" ? parsed.token : defaults.token,
+      token:
+        typeof parsed.token === "string" && parsed.token.trim()
+          ? parsed.token.trim()
+          : defaults.token,
       sessionKey:
         typeof parsed.sessionKey === "string" && parsed.sessionKey.trim()
           ? parsed.sessionKey.trim()

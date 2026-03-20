@@ -174,3 +174,55 @@ func pathExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
 }
+
+// ResolveRunMode resolves the gateway run mode: "desktop" or "service".
+//
+// Priority:
+// 1) OPENOCTA_RUN_MODE (desktop|service)
+// 2) gateway.mode in config (desktop|service|auto|local|remote)
+// 3) platform default: darwin/windows => desktop, linux => service
+func ResolveRunMode(env func(string) string, gatewayModeFromConfig *string) string {
+	if env != nil {
+		raw := strings.TrimSpace(env("OPENOCTA_RUN_MODE"))
+		switch strings.ToLower(raw) {
+		case "desktop":
+			return "desktop"
+		case "service":
+			return "service"
+		}
+	}
+
+	if gatewayModeFromConfig != nil {
+		switch strings.ToLower(strings.TrimSpace(*gatewayModeFromConfig)) {
+		case "desktop":
+			return "desktop"
+		case "service":
+			return "service"
+		case "local":
+			// Back-compat: historical "local" means loopback-only.
+			return "desktop"
+		case "remote":
+			// Back-compat: historical "remote" implies network-accessible.
+			return "service"
+		case "auto":
+			// fall through to platform default
+		}
+	}
+
+	switch runtime.GOOS {
+	case "darwin", "windows":
+		return "desktop"
+	default:
+		return "service"
+	}
+}
+
+// ResolveGatewayAddr returns the listen address for the given port and run mode.
+// - desktop: 127.0.0.1:port (loopback-only)
+// - service: :port (all interfaces)
+func ResolveGatewayAddr(port int, runMode string) string {
+	if strings.EqualFold(strings.TrimSpace(runMode), "desktop") {
+		return fmt.Sprintf("127.0.0.1:%d", port)
+	}
+	return fmt.Sprintf(":%d", port)
+}

@@ -255,11 +255,12 @@ export class GatewayBrowserClient {
         this.backoffMs = 800;
         this.opts.onHello?.(hello);
       })
-      .catch(() => {
+      .catch((err) => {
         if (canFallbackToShared && deviceIdentity) {
           clearDeviceAuthToken({ deviceId: deviceIdentity.deviceId, role });
         }
-        this.ws?.close(CONNECT_FAILED_CLOSE_CODE, "connect failed");
+        const msg = err instanceof Error ? err.message : String(err);
+        this.ws?.close(CONNECT_FAILED_CLOSE_CODE, msg || "connect failed");
       });
   }
 

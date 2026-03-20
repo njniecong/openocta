@@ -1,8 +1,6 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"time"
@@ -59,7 +57,11 @@ func Load(env EnvGetter) (*OpenOctaConfig, error) {
 	return &cfg, nil
 }
 
-// EnsureDefaultConfig ensures ~/.openclaw/openclaw.json exists; if not, creates the dir and writes minimal default config with a generated token.
+// DefaultGatewayToken is the default gateway.auth.token when initializing new configs.
+// Frontend uses the same value when user does not fill in the gateway token.
+const DefaultGatewayToken = "edc146993b5ae0b1544c3137cc888f94436cf11e1952cff6"
+
+// EnsureDefaultConfig ensures ~/.openclaw/openclaw.json exists; if not, creates the dir and writes minimal default config with DefaultGatewayToken.
 func EnsureDefaultConfig(env EnvGetter) error {
 	if env == nil {
 		env = DefaultEnv
@@ -70,10 +72,6 @@ func EnsureDefaultConfig(env EnvGetter) error {
 		return nil
 	}
 	if err := os.MkdirAll(stateDir, 0700); err != nil {
-		return err
-	}
-	token, err := generateToken(24)
-	if err != nil {
 		return err
 	}
 	modeToken := "token"
@@ -93,7 +91,7 @@ func EnsureDefaultConfig(env EnvGetter) error {
 			Bind: &bindLoopback,
 			Auth: &GatewayAuthConfig{
 				Mode:  &modeToken,
-				Token: token,
+				Token: DefaultGatewayToken,
 			},
 			Tailscale: &GatewayTailscaleConfig{
 				Mode:        &modeOff,
@@ -106,13 +104,4 @@ func EnsureDefaultConfig(env EnvGetter) error {
 		return err
 	}
 	return os.WriteFile(configPath, data, 0600)
-}
-
-// generateToken returns a hex string of length 2*n (n random bytes).
-func generateToken(n int) (string, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }

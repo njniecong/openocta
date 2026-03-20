@@ -10,6 +10,7 @@ import (
 	"github.com/openocta/openocta/embed"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
+	"github.com/openocta/openocta/pkg/installmetadata"
 	"github.com/openocta/openocta/pkg/paths"
 	"github.com/openocta/openocta/pkg/version"
 )
@@ -17,6 +18,18 @@ import (
 func configHash(raw string) string {
 	h := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(h[:])
+}
+
+// asStringMap safely converts JSON object values to map[string]interface{} (nil or wrong type → empty map).
+func asStringMap(v interface{}) map[string]interface{} {
+	if v == nil {
+		return map[string]interface{}{}
+	}
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return map[string]interface{}{}
+	}
+	return m
 }
 
 // ConfigSnapshot is the config.get response (compatible with protocol).
@@ -138,8 +151,8 @@ func ConfigSchemaHandler(opts HandlerOpts) error {
 		schema = map[string]interface{}{}
 		uiHints = map[string]interface{}{}
 	} else {
-		schema = schemaConfig["schema"].(map[string]interface{})
-		uiHints = schemaConfig["uiHints"].(map[string]interface{})
+		schema = asStringMap(schemaConfig["schema"])
+		uiHints = asStringMap(schemaConfig["uiHints"])
 	}
 
 	res := ConfigSchemaResponse{
@@ -294,6 +307,18 @@ func ConfigPatchHandler(opts HandlerOpts) error {
 		}, nil)
 		return nil
 	}
+	// 若 patch 删除 mcp.servers 中的 key，同步移除 .install-metadata.json 中的记录
+	if mcpPatch, ok := patch["mcp"].(map[string]interface{}); ok {
+		if serversPatch, ok := mcpPatch["servers"].(map[string]interface{}); ok {
+			env := func(k string) string { return os.Getenv(k) }
+			for k, v := range serversPatch {
+				if v == nil {
+					_ = installmetadata.RemoveByLocalID(env, "mcp", k)
+				}
+			}
+		}
+	}
+
 	// Use raw file content as base to preserve all keys (struct marshal drops omitempty/extra keys)
 	baseMap := ConfigSnapshotToMap(snap)
 	merged := mergePatch(baseMap, patch)

@@ -1,4 +1,5 @@
 import type { OpenClawApp } from "./app.ts";
+import { parseGatewayHost } from "./gateway-url.ts";
 import type { AgentsListResult } from "./types.ts";
 import { refreshChat } from "./app-chat.ts";
 import {
@@ -125,9 +126,10 @@ export function applySettingsFromUrl(host: SettingsHost) {
   }
 
   if (gatewayUrlRaw != null) {
-    const gatewayUrl = gatewayUrlRaw.trim();
-    if (gatewayUrl && gatewayUrl !== host.settings.gatewayUrl) {
-      host.pendingGatewayUrl = gatewayUrl;
+    const raw = gatewayUrlRaw.trim();
+    const gatewayHost = raw ? parseGatewayHost(raw) : "";
+    if (gatewayHost && gatewayHost !== host.settings.gatewayUrl) {
+      host.pendingGatewayUrl = gatewayHost;
     }
     params.delete("gatewayUrl");
     shouldCleanUrl = true;
@@ -192,6 +194,12 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "cron") {
     await loadCron(host);
   }
+  if (host.tab === "scheduledTasks") {
+    await loadCron(host);
+  }
+  if (host.tab === "cronHistory") {
+    await loadCron(host);
+  }
   if (host.tab === "skills") {
     await loadSkills(host as unknown as OpenClawApp);
   }
@@ -242,8 +250,10 @@ export async function refreshActiveTab(host: SettingsHost) {
     syncLlmTraceFromConfig(host as unknown as Parameters<typeof syncLlmTraceFromConfig>[0]);
     await loadExecApprovals(host as unknown as OpenClawApp);
   }
-  if (host.tab === "chat") {
+  if (host.tab === "chat" || host.tab === "message") {
+    await loadConfig(host as unknown as Parameters<typeof loadConfig>[0]);
     await refreshChat(host as unknown as Parameters<typeof refreshChat>[0]);
+    void loadDigitalEmployees(host as unknown as Parameters<typeof loadDigitalEmployees>[0]);
     scheduleChatScroll(
       host as unknown as Parameters<typeof scheduleChatScroll>[0],
       !host.chatHasAutoScrolled,
@@ -336,7 +346,11 @@ export function syncTabWithLocation(host: SettingsHost, replace: boolean) {
   if (typeof window === "undefined") {
     return;
   }
-  const resolved = tabFromPath(window.location.pathname, host.basePath) ?? "chat";
+  let resolved = tabFromPath(window.location.pathname, host.basePath) ?? "chat";
+  // 配置入口默认进入概览
+  if (resolved === "config") {
+    resolved = "overview";
+  }
   setTabFromRoute(host, resolved);
   syncUrlWithTab(host, resolved, replace);
 }
@@ -345,9 +359,12 @@ export function onPopState(host: SettingsHost) {
   if (typeof window === "undefined") {
     return;
   }
-  const resolved = tabFromPath(window.location.pathname, host.basePath);
+  let resolved = tabFromPath(window.location.pathname, host.basePath);
   if (!resolved) {
     return;
+  }
+  if (resolved === "config") {
+    resolved = "overview";
   }
 
   const url = new URL(window.location.href);

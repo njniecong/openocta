@@ -160,6 +160,17 @@ func resolveAgentModelRef(cfg *config.OpenOctaConfig, agentID string) string {
 func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (api.ModelFactory, error) {
 	modelRef := resolveAgentModelRef(cfg, agentID)
 	provider, modelID := resolveModelFromConfig(modelRef)
+	return createModelFactoryForProviderModel(cfg, provider, modelID)
+}
+
+// CreateModelFactoryForModelRef creates a ModelFactory for an explicit model reference (provider/modelId).
+// This is used by the web chat model picker to override the agent's configured model per request.
+func CreateModelFactoryForModelRef(cfg *config.OpenOctaConfig, modelRef string) (api.ModelFactory, error) {
+	provider, modelID := resolveModelFromConfig(strings.TrimSpace(modelRef))
+	return createModelFactoryForProviderModel(cfg, provider, modelID)
+}
+
+func createModelFactoryForProviderModel(cfg *config.OpenOctaConfig, provider, modelID string) (api.ModelFactory, error) {
 
 	if cfg != nil && cfg.Models != nil && cfg.Models.Providers != nil {
 		if providerCfg, ok := cfg.Models.Providers[provider]; ok {
@@ -181,9 +192,9 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 			}
 			modelRefForEnv := provider + "/" + foundModelID
 			apiKey := resolveProviderAPIKey(cfg, provider, providerCfg.APIKey, modelRefForEnv)
-			if apiKey == "" {
-				return nil, fmt.Errorf("API key for provider %s not found: check config.models.providers.%s.apiKey (can be a key value or env var name like $LITELLM_API_KEY), or set it in config.env.vars", provider, provider)
-			}
+			//if apiKey == "" {
+			//	return nil, fmt.Errorf("API key for provider %s not found: check config.models.providers.%s.apiKey (can be a key value or env var name like $LITELLM_API_KEY), or set it in config.env.vars", provider, provider)
+			//}
 			if foundModelID == "" {
 				return nil, fmt.Errorf("no model specified for provider %s and no models defined in config.models.providers.%s", provider, provider)
 			}
@@ -258,12 +269,12 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 	switch provider {
 	case "anthropic":
 		if modelID == "" {
-			modelID = "claude-sonnet-4-5-20250929"
+			return nil, fmt.Errorf("模型缺少 ModelID 配置")
 		}
 		modelRefForEnv := "anthropic/" + modelID
 		apiKey := getEnvVar(cfg, "ANTHROPIC_API_KEY", modelRefForEnv)
 		if apiKey == "" {
-			return nil, fmt.Errorf("ANTHROPIC_API_KEY not found: check config.env.vars.ANTHROPIC_API_KEY in config file or ANTHROPIC_API_KEY environment variable")
+			return nil, fmt.Errorf("大模型配置缺少API Key")
 		}
 		return &model.AnthropicProvider{
 			ModelName: modelID,
@@ -271,7 +282,7 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 		}, nil
 	case "openai":
 		if modelID == "" {
-			modelID = "gpt-4"
+			return nil, fmt.Errorf("模型缺少 ModelID 配置")
 		}
 		modelRefForEnv := "openai/" + modelID
 		apiKey := getEnvVar(cfg, "OPENAI_API_KEY", modelRefForEnv)
@@ -285,9 +296,7 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 	default:
 		apiKey := getEnvVar(cfg, "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-5-20250929")
 		if apiKey == "" {
-			return &model.AnthropicProvider{
-				ModelName: "claude-sonnet-4-5-20250929",
-			}, nil
+			return nil, fmt.Errorf("OPENAI_API_KEY not found: check config.env.vars.OPENAI_API_KEY in config file or OPENAI_API_KEY environment variable")
 		}
 		return &model.AnthropicProvider{
 			ModelName: "claude-sonnet-4-5-20250929",

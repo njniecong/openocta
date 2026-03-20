@@ -127,14 +127,14 @@ export function renderOverview(props: OverviewProps) {
         <div class="card-sub">${t("overviewGatewayAccessSub")}</div>
         <div class="form-grid" style="margin-top: 16px;">
           <label class="field">
-            <span>${t("overviewWebSocketUrl")}</span>
+            <span>${t("overviewGatewayHost")}</span>
             <input
               .value=${props.settings.gatewayUrl}
               @input=${(e: Event) => {
                 const v = (e.target as HTMLInputElement).value;
                 props.onSettingsChange({ ...props.settings, gatewayUrl: v });
               }}
-              placeholder="ws://100.x.y.z:18900"
+              placeholder="127.0.0.1:18900"
             />
           </label>
           <label class="field">

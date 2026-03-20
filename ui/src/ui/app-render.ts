@@ -4,10 +4,6 @@ import type { UsageState } from "./controllers/usage.ts";
 import { parseAgentSessionKey } from "./routing/session-key.js";
 import { refreshChatAvatar } from "./app-chat.ts";
 import { renderChatControls, renderTab } from "./app-render.helpers.ts";
-import { loadAgentFileContent, loadAgentFiles, saveAgentFile } from "./controllers/agent-files.ts";
-import { loadAgentIdentities, loadAgentIdentity } from "./controllers/agent-identity.ts";
-import { loadAgentSkills } from "./controllers/agent-skills.ts";
-import { loadAgents } from "./controllers/agents.ts";
 import { loadChannels } from "./controllers/channels.ts";
 import { loadChatHistory } from "./controllers/chat.ts";
 import { applyConfig, loadConfig, runUpdate, saveConfig, saveConfigPatch, updateConfigFormValue, removeConfigFormValue } from "./controllers/config.ts";
@@ -34,8 +30,7 @@ import {
 } from "./controllers/exec-approvals.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import { loadNodes } from "./controllers/nodes.ts";
-import { loadPresence } from "./controllers/presence.ts";
-import { deleteSession, deleteSessions, loadSessions, patchSession } from "./controllers/sessions.ts";
+import { createSession, deleteSession, deleteSessions, loadSessions, patchSession } from "./controllers/sessions.ts";
 import {
   deleteSkill,
   loadSkillDoc,
@@ -48,7 +43,23 @@ import {
 } from "./controllers/skills.ts";
 import { loadUsage, loadSessionTimeSeries, loadSessionLogs } from "./controllers/usage.ts";
 import { icons } from "./icons.ts";
-import { normalizeBasePath, getTabGroups, pathForTab, subtitleForTab, titleForTab } from "./navigation.ts";
+import { normalizeBasePath, getTabGroups, iconForTab, pathForTab, subtitleForTab, titleForTab } from "./navigation.ts";
+
+/** 从 session key 提取数字员工 ID，如 agent:main:employee:xxx:run:uuid -> xxx */
+function extractEmployeeIdFromSessionKey(key: string): string | null {
+  const lower = (key ?? "").toLowerCase();
+  const empPrefix = "agent:main:employee:";
+  const empDash = "agent:main:employee-";
+  if (lower.startsWith(empPrefix)) {
+    const rest = key.slice(empPrefix.length);
+    const colon = rest.indexOf(":");
+    return colon >= 0 ? rest.slice(0, colon) : rest;
+  }
+  if (lower.startsWith(empDash)) {
+    return key.slice(empDash.length).split(/[:/-]/)[0] || null;
+  }
+  return null;
+}
 
 // Module-scope debounce for usage date changes (avoids type-unsafe hacks on state object)
 let usageDateDebounceTimeout: number | null = null;
@@ -58,8 +69,7 @@ const debouncedLoadUsage = (state: UsageState) => {
   }
   usageDateDebounceTimeout = window.setTimeout(() => void loadUsage(state), 400);
 };
-import { renderAgentSwarm } from "./views/agent-swarm.ts";
-import { renderDigitalEmployee } from "./views/digital-employee.ts";
+import { renderDigitalEmployee, renderDigitalEmployeeCreateModal, renderDigitalEmployeeEditModal } from "./views/digital-employee.ts";
 import {
   loadDigitalEmployees,
   createDigitalEmployee,
@@ -69,22 +79,27 @@ import {
   getDigitalEmployee,
   updateDigitalEmployee,
 } from "./controllers/digital-employees.ts";
-import { renderAgents } from "./views/agents.ts";
 import { renderChannels } from "./views/channels.ts";
 import { renderChat } from "./views/chat.ts";
 import { renderConfig } from "./views/config.ts";
 import { renderEnvVars } from "./views/env-vars.ts";
-import { renderCron } from "./views/cron.ts";
+import { renderCronConfig, renderCronHistory } from "./views/cron.ts";
 import { renderDebug } from "./views/debug.ts";
+import { installFromSite } from "./controllers/remote-market.ts";
+import { computeEmployeeMarketCategories, renderEmployeeMarket } from "./views/employee-market.ts";
 import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
-import { renderInstances } from "./views/instances.ts";
 import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
-import { renderSkills } from "./views/skills.ts";
-import { renderMcp } from "./views/mcp.ts";
+import { computeSkillLibraryCategories, renderSkillLibrary } from "./views/skill-library.ts";
+import { computeToolLibraryCategories, renderToolLibrary } from "./views/tool-library.ts";
+import { getTutorialIcon, accentVars } from "./tutorial-icons.ts";
+import { renderTutorials, toBilibiliEmbedUrl } from "./views/tutorials.ts";
+import { requestDesktopUninstall } from "./controllers/desktop-uninstall.ts";
+import { openExternalUrl } from "./open-external-url.ts";
+import { renderAbout } from "./views/about.ts";
 import { renderLlmTrace } from "./views/llm-trace.ts";
 import { renderSecurity } from "./views/security.ts";
 import { renderModels } from "./views/models.ts";
@@ -98,23 +113,24 @@ import {
   handleMcpAddConnectionTypeChange,
   handleMcpAddEditModeChange,
   handleMcpAddSubmit,
-  handleMcpCancel,
   handleMcpDelete,
+  handleMcpToggle,
+  handleMcpSelect,
   handleMcpFormPatch,
   handleMcpRawChange,
-  handleMcpRefresh,
-  handleMcpSave,
-  handleMcpSelect,
-  handleMcpToggle,
-  handleMcpViewModeChange,
   handleMcpEditConnectionTypeChange,
+  handleMcpSave,
+  handleMcpCancel,
 } from "./app-mcp.ts";
+import { renderMcpEditModal } from "./views/mcp.ts";
+import { cloneConfigObject } from "./controllers/config/form-utils.ts";
 import {
   handleLlmTraceRefresh,
   handleLlmTraceModeChange,
   handleLlmTraceSearchChange,
   handleLlmTraceToggleEnabled,
   handleLlmTraceView,
+  handleLlmTraceBack,
   handleLlmTraceDownload,
 } from "./app-llm-trace.ts";
 import {
@@ -152,6 +168,15 @@ import {
   handleModelsUseModelModalClose,
 } from "./app-models.ts";
 import { generateUUID } from "./uuid.ts";
+import {
+  fetchEduCategories,
+  fetchEmployeeDetail,
+  fetchEmployees,
+  fetchMcpDetail,
+  fetchMcps,
+  fetchSkillDetail,
+  fetchSkills,
+} from "./controllers/remote-market.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
@@ -191,7 +216,7 @@ export function renderApp(state: AppViewState) {
   const sessionsCount = state.sessionsResult?.count ?? null;
   const cronNext = state.cronStatus?.nextWakeAtMs ?? null;
   const chatDisabledReason = state.connected ? null : "Disconnected from gateway.";
-  const isChat = state.tab === "chat";
+  const isChat = state.tab === "chat" || state.tab === "message";
   const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding);
   const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
   const assistantAvatarUrl = resolveAssistantAvatarUrl(state);
@@ -199,12 +224,19 @@ export function renderApp(state: AppViewState) {
   const configValue =
     state.configForm ?? (state.configSnapshot?.config as Record<string, unknown> | null);
   const basePath = normalizeBasePath(state.basePath ?? "");
-  const resolvedAgentId =
-    state.agentsSelectedId ??
-    state.agentsList?.defaultId ??
-    state.agentsList?.agents?.[0]?.id ??
-    null;
-
+  const isScheduledTasks =
+    state.tab === "scheduledTasks" || state.tab === "cronHistory" || state.tab === "cron";
+  const isConfigArea =
+    state.tab === "config" ||
+    state.tab === "envVars" ||
+    state.tab === "models" ||
+    state.tab === "overview" ||
+    state.tab === "channels" ||
+    state.tab === "sessions" ||
+    state.tab === "usage" ||
+    state.tab === "sandbox" ||
+    state.tab === "llmTrace" ||
+    state.tab === "aboutUs";
   return html`
     <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
       <header class="topbar">
@@ -231,18 +263,76 @@ export function renderApp(state: AppViewState) {
             </div>
           </div>
         </div>
+        <nav class="top-tabs" aria-label="Primary navigation">
+          ${[
+            { tab: "message", label: "消息" },
+            { tab: "scheduledTasks", label: "定时任务" },
+            { tab: "employeeMarket", label: "员工市场" },
+            { tab: "skillLibrary", label: "技能库" },
+            { tab: "toolLibrary", label: "工具库" },
+            { tab: "tutorials", label: "教程" },
+            { tab: "community", label: "社区", href: "https://community.databuff.com/" },
+            { tab: "config", label: "配置" },
+          ].map((item) => {
+            const tab = (item as any).tab;
+            const iconName = tab ? iconForTab(tab) : "globe";
+            const iconEl = html`<span class="nav-item__icon" aria-hidden="true">${icons[iconName]}</span>`;
+            if ((item as any).href) {
+              const extHref = String((item as any).href);
+              return html`
+                <a
+                  class="top-tab top-tab--link"
+                  href=${extHref}
+                  rel="noreferrer"
+                  @click=${(e: Event) => {
+                    e.preventDefault();
+                    void openExternalUrl(extHref, {
+                      gatewayHost: state.settings.gatewayUrl,
+                      gatewayToken: state.settings.token,
+                    });
+                  }}
+                >
+                  ${iconEl}
+                  ${(item as any).label}
+                </a>
+              `;
+            }
+            const active =
+              tab === "scheduledTasks"
+                ? isScheduledTasks
+                : tab === "config"
+                  ? isConfigArea
+                  : state.tab === tab;
+            return html`
+              <button
+                class="top-tab ${active ? "top-tab--active" : ""}"
+                @click=${() => state.setTab((tab === "config" ? "overview" : tab)!)}
+                type="button"
+              >
+                ${iconEl}
+                ${(item as any).label}
+              </button>
+            `;
+          })}
+        </nav>
         <div class="topbar-status">
           <div class="pill">
             <span>Version</span>
-            <span class="mono">${typeof __APP_VERSION__ === "string" && __APP_VERSION__ ? __APP_VERSION__ : "---"}</span>
+            <span class="mono">${state.configSchemaVersion ?? "---"}</span>
           </div>
           <div class="pill">
             <a
               href="https://github.com/openocta/openocta.git"
-              target="_blank"
               rel="noreferrer"
               title="GitHub 仓库（新窗口打开）"
               class="topbar-link"
+              @click=${(e: Event) => {
+                e.preventDefault();
+                void openExternalUrl("https://github.com/openocta/openocta.git", {
+                  gatewayHost: state.settings.gatewayUrl,
+                  gatewayToken: state.settings.token,
+                });
+              }}
             >
               <span class="topbar-link__icon" aria-hidden="true">${icons.github}</span>
               <span>GitHub</span>
@@ -251,10 +341,16 @@ export function renderApp(state: AppViewState) {
           <div class="pill">
             <a
               href="https://www.openocta.com/"
-              target="_blank"
               rel="noreferrer"
               title="OpenOcta 官网（新窗口打开）"
               class="topbar-link"
+              @click=${(e: Event) => {
+                e.preventDefault();
+                void openExternalUrl("https://www.openocta.com/", {
+                  gatewayHost: state.settings.gatewayUrl,
+                  gatewayToken: state.settings.token,
+                });
+              }}
             >
               <img
                 src=${basePath ? `${basePath}/favicon.ico` : "/favicon.ico"}
@@ -274,51 +370,360 @@ export function renderApp(state: AppViewState) {
         </div>
       </header>
       <aside class="nav ${state.settings.navCollapsed ? "nav--collapsed" : ""}">
-        ${getTabGroups().map((group) => {
-          const isGroupCollapsed = state.settings.navGroupsCollapsed[group.label] ?? false;
-          const hasActiveTab = group.tabs.some((tab) => tab === state.tab);
-          return html`
-            <div class="nav-group ${isGroupCollapsed && !hasActiveTab ? "nav-group--collapsed" : ""}">
-              <button
-                class="nav-label"
-                @click=${() => {
-                  const next = { ...state.settings.navGroupsCollapsed };
-                  next[group.label] = !isGroupCollapsed;
-                  state.applySettings({
-                    ...state.settings,
-                    navGroupsCollapsed: next,
-                  });
-                }}
-                aria-expanded=${!isGroupCollapsed}
-              >
-                <span class="nav-label__text">${group.label}</span>
-                <span class="nav-label__chevron">${isGroupCollapsed ? "+" : "−"}</span>
-              </button>
-              <div class="nav-group__items">
-                ${group.tabs.map((tab) => renderTab(state, tab))}
-              </div>
-            </div>
-          `;
-        })}
-        <div class="nav-group nav-group--links">
-          <div class="nav-label nav-label--static">
-            <span class="nav-label__text">Resources</span>
-          </div>
-          <div class="nav-group__items">
-            <a
-              class="nav-item nav-item--external"
-              href="https://databuff.yuque.com/org-wiki-databuff-spr8e6/lqn7on/nd9nghq03n2nymz0"
-              target="_blank"
-              rel="noreferrer"
-              title="Docs (opens in new tab)"
-            >
-              <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
-              <span class="nav-item__text">Docs</span>
-            </a>
-          </div>
-        </div>
+        ${
+          state.tab === "message"
+            ? html`
+                <div class="session-sidebar">
+                  <button
+                    class="session-new"
+                    type="button"
+                    @click=${async () => {
+                      const res = await createSession(state);
+                      if (res?.key) {
+                        state.sessionKey = res.key;
+                        state.chatMessage = "";
+                        state.chatAttachments = [];
+                        state.resetToolStream();
+                        state.applySettings({
+                          ...state.settings,
+                          sessionKey: res.key,
+                          lastActiveSessionKey: res.key,
+                        });
+                        void state.loadAssistantIdentity();
+                        await Promise.all([loadChatHistory(state), refreshChatAvatar(state)]);
+                        /* 仅展示默认空页面，不自动发送问候；用户输入并发送后再开始会话 */
+                      }
+                    }}
+                  >
+                    <span class="session-new__icon" aria-hidden="true">${icons.plus}</span>
+                    <span>新消息</span>
+                  </button>
+
+                  <div class="session-list">
+                    ${
+                      (state.sessionsResult?.sessions ?? []).map((s) => {
+                        const key = (s as any).key ?? (s as any).sessionId ?? "";
+                        const isCustom = key.toLowerCase().startsWith("custom:");
+                        const employeeId = isCustom ? null : extractEmployeeIdFromSessionKey(key);
+                        const emp = employeeId
+                          ? state.digitalEmployees?.find((e) => e.id === employeeId)
+                          : null;
+                        const displayName =
+                          emp?.name ||
+                          ((s as any).origin && (((s as any).origin.label || (s as any).origin.from || (s as any).origin.to) as string)) ||
+                          (s as any).label ||
+                          (s as any).displayName ||
+                          (s as any).sessionId ||
+                          key ||
+                          "会话";
+                        const subtitle = (s as any).lastMessagePreview?.trim() || "";
+                        const active = key && state.sessionKey === key;
+                        const canEdit = isCustom;
+                        const isEditing = canEdit && state.sessionEditingKey === key;
+                        const saveEdit = async (newLabel: string) => {
+                          if (!key || !newLabel.trim()) {
+                            state.sessionEditingKey = null;
+                            return;
+                          }
+                          await patchSession(state, key, { label: newLabel.trim() });
+                          state.sessionEditingKey = null;
+                        };
+                        return html`
+                          <div
+                            class="session-item ${active ? "session-item--active" : ""} ${canEdit ? "session-item--editable" : ""}"
+                            role="button"
+                            tabindex="0"
+                            @click=${async (e: Event) => {
+                              const target = e.target as HTMLElement;
+                              if (target.closest(".session-item__edit") || target.closest("input")) return;
+                              if (!key) return;
+                              state.sessionKey = key;
+                              state.chatMessage = "";
+                              state.resetToolStream();
+                              state.applySettings({
+                                ...state.settings,
+                                sessionKey: key,
+                                lastActiveSessionKey: key,
+                              });
+                              await Promise.all([loadChatHistory(state), refreshChatAvatar(state)]);
+                            }}
+                            @dblclick=${(e: Event) => {
+                              if (!canEdit) return;
+                              e.stopPropagation();
+                              state.sessionEditingKey = key;
+                            }}
+                            @keydown=${(e: KeyboardEvent) => {
+                              if (e.key === "Enter" && !isEditing) {
+                                e.preventDefault();
+                                (e.currentTarget as HTMLElement).click();
+                              }
+                            }}
+                          >
+                            <span class="session-item__icon" aria-hidden="true">
+                              ${emp
+                                ? html`<span class="session-item__icon-emp">${(emp as any).name?.slice(0, 1) || "?"}</span>`
+                                : html`<span class="session-item__icon-default">${icons.messageSquare}</span>`}
+                            </span>
+                            <div class="session-item__body">
+                              ${isEditing
+                                ? html`
+                                    <input
+                                      class="session-item__input"
+                                      type="text"
+                                      .value=${displayName}
+                                      @blur=${(e: Event) => saveEdit((e.target as HTMLInputElement).value)}
+                                      @keydown=${(e: KeyboardEvent) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          saveEdit((e.target as HTMLInputElement).value);
+                                        }
+                                        if (e.key === "Escape") {
+                                          state.sessionEditingKey = null;
+                                        }
+                                      }}
+                                      @click=${(e: Event) => e.stopPropagation()}
+                                    />
+                                  `
+                                : html`<span class="session-item__text">${displayName}</span>`}
+                              ${!isEditing && subtitle ? html`<span class="session-item__sub muted">${subtitle}</span>` : nothing}
+                            </div>
+                          </div>
+                        `;
+                      })
+                    }
+                  </div>
+                </div>
+              `
+            : isScheduledTasks
+              ? html`
+                  <div class="nav-group">
+                    <button class="nav-label nav-label--static" type="button">
+                      <span class="nav-label__text">定时任务</span>
+                    </button>
+                    <div class="nav-group__items">
+                      ${renderTab(state, "scheduledTasks")}
+                      ${renderTab(state, "cronHistory")}
+                    </div>
+                  </div>
+                `
+              : isConfigArea
+                ? html`
+                    <div class="nav-group">
+                      <button class="nav-label nav-label--static" type="button">
+                        <span class="nav-label__text">控制</span>
+                      </button>
+                      <div class="nav-group__items">
+                        ${renderTab(state, "overview")}
+                        ${renderTab(state, "channels")}
+                        ${renderTab(state, "sessions")}
+                        ${renderTab(state, "usage")}
+                      </div>
+                    </div>
+                    <div class="nav-group">
+                      <button class="nav-label nav-label--static" type="button">
+                        <span class="nav-label__text">Agent</span>
+                      </button>
+                      <div class="nav-group__items">
+                        ${renderTab(state, "models")}
+                        ${renderTab(state, "sandbox")}
+                        ${renderTab(state, "llmTrace")}
+                      </div>
+                    </div>
+                    <div class="nav-group">
+                      <button class="nav-label nav-label--static" type="button">
+                        <span class="nav-label__text">配置</span>
+                      </button>
+                      <div class="nav-group__items">
+                        ${renderTab(state, "config")}
+                        ${renderTab(state, "envVars")}
+                      </div>
+                    </div>
+                    <div class="nav-group">
+                      <button class="nav-label nav-label--static" type="button">
+                        <span class="nav-label__text">资源</span>
+                      </button>
+                      <div class="nav-group__items">
+                        <a
+                          class="nav-item"
+                          href="https://www.openocta.com/docs"
+                          rel="noreferrer"
+                          title="在线文档（新窗口打开）"
+                          @click=${(e: Event) => {
+                            e.preventDefault();
+                            void openExternalUrl("https://www.openocta.com/docs", {
+                              gatewayHost: state.settings.gatewayUrl,
+                              gatewayToken: state.settings.token,
+                            });
+                          }}
+                        >
+                          <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
+                          <span class="nav-item__text">在线文档</span>
+                        </a>
+                        ${renderTab(state, "aboutUs")}
+                      </div>
+                    </div>
+                  `
+              : state.tab === "employeeMarket"
+                ? (() => {
+                    const { orderedCategories, counts } = computeEmployeeMarketCategories(
+                      state.employeeMarketItems,
+                      state.employeeMarketQuery
+                    );
+                    const effectiveCategory = (state.employeeMarketCategory ?? "").trim() || "__all__";
+                    return html`
+                      <div class="nav-group">
+                        <button class="nav-label nav-label--static" type="button">
+                          <span class="nav-label__text">分类</span>
+                        </button>
+                        <div class="nav-group__items">
+                          <div class="emp-categories">
+                          ${orderedCategories.map((catKey) => {
+                            const label = catKey === "__all__" ? "全部" : catKey;
+                            const active = effectiveCategory === catKey;
+                            const count = counts.get(catKey) ?? 0;
+                            return html`
+                              <button
+                                class="emp-cat ${active ? "active" : ""}"
+                                type="button"
+                                ?disabled=${state.employeeMarketLoading}
+                                @click=${() => (state.employeeMarketCategory = catKey)}
+                              >
+                                <span class="emp-cat__name">${label}</span>
+                                <span class="emp-cat__count">${count}</span>
+                              </button>
+                            `;
+                          })}
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                  })()
+                : state.tab === "skillLibrary"
+                  ? (() => {
+                      const { orderedCategories, counts } = computeSkillLibraryCategories(
+                        state.skillLibraryItems,
+                        state.skillLibraryQuery,
+                        state.skillLibraryStatus ?? ""
+                      );
+                      const effectiveCategory = (state.skillLibraryCategory ?? "").trim() || "__all__";
+                      return html`
+                        <div class="nav-group">
+                          <button class="nav-label nav-label--static" type="button">
+                            <span class="nav-label__text">分类</span>
+                          </button>
+                          <div class="nav-group__items">
+                            <div class="emp-categories">
+                            ${orderedCategories.map((catKey) => {
+                              const label = catKey === "__all__" ? "全部" : catKey;
+                              const active = effectiveCategory === catKey;
+                              const count = counts.get(catKey) ?? 0;
+                              return html`
+                                <button
+                                  class="emp-cat ${active ? "active" : ""}"
+                                  type="button"
+                                  ?disabled=${state.skillLibraryLoading}
+                                  @click=${() => (state.skillLibraryCategory = catKey)}
+                                >
+                                  <span class="emp-cat__name">${label}</span>
+                                  <span class="emp-cat__count">${count}</span>
+                                </button>
+                              `;
+                            })}
+                            </div>
+                          </div>
+                        </div>
+                      `;
+                    })()
+                    : state.tab === "toolLibrary"
+                    ? (() => {
+                        const { orderedCategories, counts } = computeToolLibraryCategories(
+                          state.toolLibraryItems,
+                          state.toolLibraryQuery
+                        );
+                        const effectiveCategory = (state.toolLibraryCategory ?? "").trim() || "__all__";
+                        return html`
+                          <div class="nav-group">
+                            <button class="nav-label nav-label--static" type="button">
+                              <span class="nav-label__text">分类</span>
+                            </button>
+                            <div class="nav-group__items">
+                              <div class="emp-categories">
+                              ${orderedCategories.map((catKey) => {
+                                const label = catKey === "__all__" ? "全部" : catKey;
+                                const active = effectiveCategory === catKey;
+                                const count = counts.get(catKey) ?? 0;
+                                return html`
+                                  <button
+                                    class="emp-cat ${active ? "active" : ""}"
+                                    type="button"
+                                    ?disabled=${state.toolLibraryLoading}
+                                    @click=${() => (state.toolLibraryCategory = catKey)}
+                                  >
+                                    <span class="emp-cat__name">${label}</span>
+                                    <span class="emp-cat__count">${count}</span>
+                                  </button>
+                                `;
+                              })}
+                              </div>
+                            </div>
+                          </div>
+                        `;
+                      })()
+                    : state.tab === "tutorials"
+                      ? (() => {
+                          const orderedCategories = [...(state.tutorialCategories ?? [])].sort(
+                            (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, "zh-Hans-CN"),
+                          );
+                          const activeId = state.tutorialsSelectedCategoryId;
+                          return html`
+                            <div class="nav-group">
+                              <button class="nav-label nav-label--static" type="button">
+                                <span class="nav-label__text">分类</span>
+                              </button>
+                              <div class="nav-group__items">
+                                <div class="emp-categories">
+                                ${orderedCategories.length === 0
+                                  ? html`<button class="emp-cat" disabled>
+                                      <span class="emp-cat__name">暂无分类</span>
+                                      <span class="emp-cat__count">0</span>
+                                    </button>`
+                                  : orderedCategories.map((cat, catIdx) => {
+                                      const active = activeId === cat.id;
+                                      const count = cat.courses?.length ?? 0;
+                                      const iconSvg = getTutorialIcon(cat.icon_class);
+                                      const iconText = (cat.name ?? "").trim().slice(0, 1) || "教";
+                                      return html`
+                                        <button
+                                          class="emp-cat emp-cat--tutorial ${active ? "active" : ""}"
+                                          type="button"
+                                          style=${accentVars(cat.accent, catIdx)}
+                                          ?disabled=${state.tutorialsLoading}
+                                          @click=${() => (state.tutorialsSelectedCategoryId = cat.id)}
+                                        >
+                                          <span class="emp-cat__name" style="display:flex; align-items:center; gap: 10px; min-width: 0;">
+                                            <span
+                                              class="emp-cat__icon-wrap"
+                                              aria-hidden="true"
+                                            >
+                                              ${iconSvg
+                                                ? html`<span class="emp-cat__icon-svg">${iconSvg}</span>`
+                                                : iconText}
+                                            </span>
+                                            <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cat.name}</span>
+                                          </span>
+                                          <span class="emp-cat__count">${count}</span>
+                                        </button>
+                                      `;
+                                    })}
+                                </div>
+                              </div>
+                            </div>
+                          `;
+                        })()
+                      : html`<div class="nav-empty"></div>`
+        }
       </aside>
-      <main class="content ${isChat ? "content--chat" : ""}">
+      <main class="content ${isChat ? "content--chat" : ""} ${state.tab === "llmTrace" && state.llmTraceViewingSessionId != null ? "content--llm-trace-detail" : ""}">
         <section class="content-header">
           <div>
             ${state.tab === "usage" ? nothing : html`<div class="page-title">${titleForTab(state.tab)}</div>`}
@@ -400,18 +805,6 @@ export function renderApp(state: AppViewState) {
                 onNostrProfileSave: () => state.handleNostrProfileSave(),
                 onNostrProfileImport: () => state.handleNostrProfileImport(),
                 onNostrProfileToggleAdvanced: () => state.handleNostrProfileToggleAdvanced(),
-              })
-            : nothing
-        }
-
-        ${
-          state.tab === "instances"
-            ? renderInstances({
-                loading: state.presenceLoading,
-                entries: state.presenceEntries,
-                lastError: state.presenceError,
-                statusMessage: state.presenceStatus,
-                onRefresh: () => loadPresence(state),
               })
             : nothing
         }
@@ -743,8 +1136,8 @@ export function renderApp(state: AppViewState) {
         }
 
         ${
-          state.tab === "cron"
-            ? renderCron({
+          state.tab === "cron" || state.tab === "scheduledTasks"
+            ? renderCronConfig({
                 basePath: state.basePath,
                 loading: state.cronLoading,
                 status: state.cronStatus,
@@ -766,376 +1159,599 @@ export function renderApp(state: AppViewState) {
                 onRun: (job) => runCronJob(state, job),
                 onRemove: (job) => removeCronJob(state, job),
                 onLoadRuns: (jobId) => loadCronRuns(state, jobId),
+                onShowHistory: (jobId) => {
+                  state.setTab("cronHistory");
+                  void loadCronRuns(state, jobId);
+                },
               })
             : nothing
         }
 
         ${
-          state.tab === "agents"
-            ? renderAgents({
-                loading: state.agentsLoading,
-                error: state.agentsError,
-                agentsList: state.agentsList,
-                selectedAgentId: resolvedAgentId,
-                activePanel: state.agentsPanel,
-                configForm: configValue,
-                configLoading: state.configLoading,
-                configSaving: state.configSaving,
-                configDirty: state.configFormDirty,
-                channelsLoading: state.channelsLoading,
-                channelsError: state.channelsError,
-                channelsSnapshot: state.channelsSnapshot,
-                channelsLastSuccess: state.channelsLastSuccess,
-                cronLoading: state.cronLoading,
-                cronStatus: state.cronStatus,
-                cronJobs: state.cronJobs,
-                cronError: state.cronError,
-                agentFilesLoading: state.agentFilesLoading,
-                agentFilesError: state.agentFilesError,
-                agentFilesList: state.agentFilesList,
-                agentFileActive: state.agentFileActive,
-                agentFileContents: state.agentFileContents,
-                agentFileDrafts: state.agentFileDrafts,
-                agentFileSaving: state.agentFileSaving,
-                agentIdentityLoading: state.agentIdentityLoading,
-                agentIdentityError: state.agentIdentityError,
-                agentIdentityById: state.agentIdentityById,
-                agentSkillsLoading: state.agentSkillsLoading,
-                agentSkillsReport: state.agentSkillsReport,
-                agentSkillsError: state.agentSkillsError,
-                agentSkillsAgentId: state.agentSkillsAgentId,
-                skillsFilter: state.skillsFilter,
-                onRefresh: async () => {
-                  await loadAgents(state);
-                  const agentIds = state.agentsList?.agents?.map((entry) => entry.id) ?? [];
-                  if (agentIds.length > 0) {
-                    void loadAgentIdentities(state, agentIds);
-                  }
+          state.tab === "cronHistory"
+            ? renderCronHistory({
+                basePath: state.basePath,
+                loading: state.cronLoading,
+                status: state.cronStatus,
+                jobs: state.cronJobs,
+                error: state.cronError,
+                busy: state.cronBusy,
+                form: state.cronForm,
+                channels: state.channelsSnapshot?.channelMeta?.length
+                  ? state.channelsSnapshot.channelMeta.map((entry) => entry.id)
+                  : (state.channelsSnapshot?.channelOrder ?? []),
+                channelLabels: state.channelsSnapshot?.channelLabels ?? {},
+                channelMeta: state.channelsSnapshot?.channelMeta ?? [],
+                runsJobId: state.cronRunsJobId,
+                runs: state.cronRuns,
+                onFormChange: (patch) => (state.cronForm = { ...state.cronForm, ...patch }),
+                onRefresh: () => state.loadCron(),
+                onAdd: () => addCronJob(state),
+                onToggle: (job, enabled) => toggleCronJob(state, job, enabled),
+                onRun: (job) => runCronJob(state, job),
+                onRemove: (job) => removeCronJob(state, job),
+                onLoadRuns: (jobId) => loadCronRuns(state, jobId),
+                onShowHistory: (jobId) => {
+                  state.setTab("cronHistory");
+                  void loadCronRuns(state, jobId);
                 },
-                onSelectAgent: (agentId) => {
-                  if (state.agentsSelectedId === agentId) {
-                    return;
-                  }
-                  state.agentsSelectedId = agentId;
-                  state.agentFilesList = null;
-                  state.agentFilesError = null;
-                  state.agentFilesLoading = false;
-                  state.agentFileActive = null;
-                  state.agentFileContents = {};
-                  state.agentFileDrafts = {};
-                  state.agentSkillsReport = null;
-                  state.agentSkillsError = null;
-                  state.agentSkillsAgentId = null;
-                  void loadAgentIdentity(state, agentId);
-                  if (state.agentsPanel === "files") {
-                    void loadAgentFiles(state, agentId);
-                  }
-                  if (state.agentsPanel === "skills") {
-                    void loadAgentSkills(state, agentId);
-                  }
-                },
-                onSelectPanel: (panel) => {
-                  state.agentsPanel = panel;
-                  if (panel === "files" && resolvedAgentId) {
-                    if (state.agentFilesList?.agentId !== resolvedAgentId) {
-                      state.agentFilesList = null;
-                      state.agentFilesError = null;
-                      state.agentFileActive = null;
-                      state.agentFileContents = {};
-                      state.agentFileDrafts = {};
-                      void loadAgentFiles(state, resolvedAgentId);
-                    }
-                  }
-                  if (panel === "skills") {
-                    if (resolvedAgentId) {
-                      void loadAgentSkills(state, resolvedAgentId);
-                    }
-                  }
-                  if (panel === "channels") {
-                    void loadChannels(state, false);
-                  }
-                  if (panel === "cron") {
-                    void state.loadCron();
-                  }
-                },
-                onLoadFiles: (agentId) => loadAgentFiles(state, agentId),
-                onSelectFile: (name) => {
-                  state.agentFileActive = name;
-                  if (!resolvedAgentId) {
-                    return;
-                  }
-                  void loadAgentFileContent(state, resolvedAgentId, name);
-                },
-                onFileDraftChange: (name, content) => {
-                  state.agentFileDrafts = { ...state.agentFileDrafts, [name]: content };
-                },
-                onFileReset: (name) => {
-                  const base = state.agentFileContents[name] ?? "";
-                  state.agentFileDrafts = { ...state.agentFileDrafts, [name]: base };
-                },
-                onFileSave: (name) => {
-                  if (!resolvedAgentId) {
-                    return;
-                  }
-                  const content =
-                    state.agentFileDrafts[name] ?? state.agentFileContents[name] ?? "";
-                  void saveAgentFile(state, resolvedAgentId, name, content);
-                },
-                onToolsProfileChange: (agentId, profile, clearAllow) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  const basePath = ["agents", "list", index, "tools"];
-                  if (profile) {
-                    updateConfigFormValue(state, [...basePath, "profile"], profile);
-                  } else {
-                    removeConfigFormValue(state, [...basePath, "profile"]);
-                  }
-                  if (clearAllow) {
-                    removeConfigFormValue(state, [...basePath, "allow"]);
-                  }
-                },
-                onToolsOverridesChange: (agentId, alsoAllow, deny) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  const basePath = ["agents", "list", index, "tools"];
-                  if (alsoAllow.length > 0) {
-                    updateConfigFormValue(state, [...basePath, "alsoAllow"], alsoAllow);
-                  } else {
-                    removeConfigFormValue(state, [...basePath, "alsoAllow"]);
-                  }
-                  if (deny.length > 0) {
-                    updateConfigFormValue(state, [...basePath, "deny"], deny);
-                  } else {
-                    removeConfigFormValue(state, [...basePath, "deny"]);
-                  }
-                },
-                onConfigReload: () => loadConfig(state),
-                onConfigSave: () => saveConfig(state),
-                onChannelsRefresh: () => loadChannels(state, false),
-                onCronRefresh: () => state.loadCron(),
-                onSkillsFilterChange: (next) => (state.skillsFilter = next),
-                onSkillsRefresh: () => {
-                  if (resolvedAgentId) {
-                    void loadAgentSkills(state, resolvedAgentId);
-                  }
-                },
-                onAgentSkillToggle: (agentId, skillName, enabled) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  const entry = list[index] as { skills?: unknown };
-                  const normalizedSkill = skillName.trim();
-                  if (!normalizedSkill) {
-                    return;
-                  }
-                  const allSkills =
-                    state.agentSkillsReport?.skills?.map((skill) => skill.name).filter(Boolean) ??
-                    [];
-                  const existing = Array.isArray(entry.skills)
-                    ? entry.skills.map((name) => String(name).trim()).filter(Boolean)
-                    : undefined;
-                  const base = existing ?? allSkills;
-                  const next = new Set(base);
-                  if (enabled) {
-                    next.add(normalizedSkill);
-                  } else {
-                    next.delete(normalizedSkill);
-                  }
-                  updateConfigFormValue(state, ["agents", "list", index, "skills"], [...next]);
-                },
-                onAgentSkillsClear: (agentId) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  removeConfigFormValue(state, ["agents", "list", index, "skills"]);
-                },
-                onAgentSkillsDisableAll: (agentId) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  updateConfigFormValue(state, ["agents", "list", index, "skills"], []);
-                },
-                onModelChange: (agentId, modelId) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  const basePath = ["agents", "list", index, "model"];
-                  if (!modelId) {
-                    removeConfigFormValue(state, basePath);
-                    return;
-                  }
-                  const entry = list[index] as { model?: unknown };
-                  const existing = entry?.model;
-                  if (existing && typeof existing === "object" && !Array.isArray(existing)) {
-                    const fallbacks = (existing as { fallbacks?: unknown }).fallbacks;
-                    const next = {
-                      primary: modelId,
-                      ...(Array.isArray(fallbacks) ? { fallbacks } : {}),
-                    };
-                    updateConfigFormValue(state, basePath, next);
-                  } else {
-                    updateConfigFormValue(state, basePath, modelId);
-                  }
-                },
-                onModelFallbacksChange: (agentId, fallbacks) => {
-                  if (!configValue) {
-                    return;
-                  }
-                  const list = (configValue as { agents?: { list?: unknown[] } }).agents?.list;
-                  if (!Array.isArray(list)) {
-                    return;
-                  }
-                  const index = list.findIndex(
-                    (entry) =>
-                      entry &&
-                      typeof entry === "object" &&
-                      "id" in entry &&
-                      (entry as { id?: string }).id === agentId,
-                  );
-                  if (index < 0) {
-                    return;
-                  }
-                  const basePath = ["agents", "list", index, "model"];
-                  const entry = list[index] as { model?: unknown };
-                  const normalized = fallbacks.map((name) => name.trim()).filter(Boolean);
-                  const existing = entry.model;
-                  const resolvePrimary = () => {
-                    if (typeof existing === "string") {
-                      return existing.trim() || null;
-                    }
-                    if (existing && typeof existing === "object" && !Array.isArray(existing)) {
-                      const primary = (existing as { primary?: unknown }).primary;
-                      if (typeof primary === "string") {
-                        const trimmed = primary.trim();
-                        return trimmed || null;
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "employeeMarket"
+            ? (() => {
+                const onRefresh = async () => {
+                  state.employeeMarketLoading = true;
+                  state.employeeMarketError = null;
+                  try {
+                    const category =
+                      state.employeeMarketCategory && state.employeeMarketCategory !== "__all__"
+                        ? state.employeeMarketCategory
+                        : undefined;
+                    state.employeeMarketItems = await fetchEmployees(
+                      { q: state.employeeMarketQuery, category },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    );
+                    // 从 API 响应（含 .install-metadata.json）推导已安装状态，刷新后仍可识别
+                    const empItems = state.employeeMarketItems;
+                    const empInstalled = new Set<string>();
+                    const empMap: Record<string, string> = {};
+                    for (const it of empItems) {
+                      if (it.installed && it.localId) {
+                        const rid = String(it.id);
+                        if (typeof it.id !== "string" || !rid.startsWith("local:")) {
+                          empInstalled.add(rid);
+                          empMap[rid] = it.localId;
+                        }
                       }
                     }
-                    return null;
-                  };
-                  const primary = resolvePrimary();
-                  if (normalized.length === 0) {
-                    if (primary) {
-                      updateConfigFormValue(state, basePath, primary);
-                    } else {
-                      removeConfigFormValue(state, basePath);
+                    state.employeeMarketInstalledRemoteIds = empInstalled;
+                    state.employeeMarketRemoteToLocal = empMap;
+                  } catch (err) {
+                    state.employeeMarketError = (err as any)?.message
+                      ? String((err as any).message)
+                      : String(err);
+                  } finally {
+                    state.employeeMarketLoading = false;
+                  }
+                };
+
+                // Auto-load once when entering the page.
+                if (!state.employeeMarketLoadedOnce && !state.employeeMarketLoading) {
+                  state.employeeMarketLoadedOnce = true;
+                  queueMicrotask(() => void onRefresh());
+                }
+
+                return renderEmployeeMarket({
+                loading: state.employeeMarketLoading,
+                error: state.employeeMarketError,
+                query: state.employeeMarketQuery,
+                category: state.employeeMarketCategory,
+                items: state.employeeMarketItems,
+                selectedId: state.employeeMarketSelectedId,
+                selectedDetail: state.employeeMarketSelectedDetail,
+                onQueryChange: (next) => (state.employeeMarketQuery = next),
+                onCategoryChange: (next) => (state.employeeMarketCategory = next),
+                onRefresh: async () => {
+                    await onRefresh();
+                },
+                onSelect: async (id) => {
+                  state.employeeMarketSelectedId = id;
+                  state.employeeMarketSelectedDetail = null;
+                  state.employeeMarketError = null;
+                  try {
+                    state.employeeMarketSelectedDetail = await fetchEmployeeDetail(id, {
+                      gatewayHost: state.settings?.gatewayUrl?.trim(),
+                      token: state.settings?.token?.trim(),
+                    });
+                  } catch (err) {
+                    state.employeeMarketError = (err as any)?.message ? String((err as any).message) : String(err);
+                  }
+                },
+                onDetailClose: () => {
+                  state.employeeMarketSelectedId = null;
+                  state.employeeMarketSelectedDetail = null;
+                },
+                onAdd: () => {
+                  state.digitalEmployeeCreateModalOpen = true;
+                  state.digitalEmployeeAdvancedOpen = false;
+                  state.digitalEmployeeCreateMcpMode = "builder";
+                  state.digitalEmployeeCreateMcpJson = "";
+                  state.digitalEmployeeCreateMcpItems = [];
+                  state.digitalEmployeeSkillUploadName = "";
+                  state.digitalEmployeeSkillUploadFiles = [];
+                  state.digitalEmployeeSkillUploadError = null;
+                },
+                onInstall: async (id, category) => {
+                  const remoteId = String(id);
+                  state.employeeMarketInstallingId = remoteId;
+                  state.employeeMarketError = null;
+                  try {
+                    const res = await installFromSite(
+                      {
+                        kind: "employee",
+                        id: remoteId,
+                        type: category ?? undefined,
+                        category: category ?? undefined,
+                      },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    );
+                    state.employeeMarketInstalledRemoteIds = new Set([
+                      ...state.employeeMarketInstalledRemoteIds,
+                      remoteId,
+                    ]);
+                    if (res?.id) {
+                      state.employeeMarketRemoteToLocal = {
+                        ...state.employeeMarketRemoteToLocal,
+                        [remoteId]: res.id,
+                      };
                     }
+                    await onRefresh();
+                  } catch (err) {
+                    state.employeeMarketError = (err as Error)?.message ?? String(err);
+                  } finally {
+                    state.employeeMarketInstallingId = null;
+                  }
+                },
+                onDelete: async (localId) => {
+                  state.employeeMarketError = null;
+                  state.digitalEmployeesError = null;
+                  await deleteDigitalEmployee(state, localId);
+                  if (state.digitalEmployeesError) {
+                    state.employeeMarketError = state.digitalEmployeesError;
+                  } else {
+                    const ridsToRemove = Object.entries(state.employeeMarketRemoteToLocal)
+                      .filter(([, lid]) => lid === localId)
+                      .map(([rid]) => rid);
+                    const next = { ...state.employeeMarketRemoteToLocal };
+                    for (const rid of ridsToRemove) delete next[rid];
+                    state.employeeMarketRemoteToLocal = next;
+                    state.employeeMarketInstalledRemoteIds = new Set(
+                      [...state.employeeMarketInstalledRemoteIds].filter(
+                        (rid) => !ridsToRemove.includes(rid),
+                      ),
+                    );
+                    await onRefresh();
+                    state.employeeMarketSelectedId = null;
+                    state.employeeMarketSelectedDetail = null;
+                  }
+                },
+                onOpenEmployee: async (employeeId) => {
+                  const idPart = employeeId.trim() || "default";
+                  await loadSessions(state, { activeMinutes: 10080, limit: 200, includeLastMessage: true });
+                  const sessions = state.sessionsResult?.sessions ?? [];
+                  const employeePatterns = [
+                    `agent:main:employee:${idPart}:`,
+                    `agent:main:employee-${idPart}`,
+                    `employee:${idPart}:`,
+                    `employee-${idPart}`,
+                  ];
+                  const existing = sessions.find((s) =>
+                    employeePatterns.some((p) => s.key.includes(p) || s.key === p),
+                  );
+                  const sessionKey = existing
+                    ? existing.key
+                    : `agent:main:employee:${idPart}:run:${generateUUID()}`;
+                  state.sessionKey = sessionKey;
+                  state.chatMessage = "";
+                  state.chatAttachments = [];
+                  state.chatStream = null;
+                  state.chatStreamStartedAt = null;
+                  state.chatRunId = null;
+                  state.chatQueue = [];
+                  state.resetToolStream();
+                  state.resetChatScroll();
+                  state.applySettings({
+                    ...state.settings,
+                    sessionKey,
+                    lastActiveSessionKey: sessionKey,
+                  });
+                  void state.loadAssistantIdentity();
+                  void loadChatHistory(state);
+                  void refreshChatAvatar(state);
+                  state.setTab("message");
+                  if (!existing) {
+                    state.handleSendChat(
+                      "当前已开启数字员工会话。请以你配置的人设（如有）向用户打招呼，保持你的语气、风格和情绪。用 1～3 句话问候并询问用户想做什么。",
+                      { refreshSessions: true },
+                    );
+                  }
+                },
+                onEdit: async (localId) => {
+                  const emp = state.digitalEmployees.find((e) => e.id === localId);
+                  const manifest = await getDigitalEmployee(state, localId);
+                  if (!manifest) {
+                    state.employeeMarketError = "无法加载员工详情";
                     return;
                   }
-                  const next = primary
-                    ? { primary, fallbacks: normalized }
-                    : { fallbacks: normalized };
-                  updateConfigFormValue(state, basePath, next);
+                  const buildEditMcpItems = (servers: Record<string, unknown> | undefined) => {
+                    const items: import("./views/digital-employee.js").EmployeeMcpItem[] = [];
+                    if (!servers || typeof servers !== "object") return items;
+                    for (const [key, value] of Object.entries(servers)) {
+                      const k = String(key ?? "").trim();
+                      if (!k) continue;
+                      const v = value as Record<string, unknown>;
+                      const isObj = v && typeof v === "object" && !Array.isArray(v);
+                      const connectionType: "stdio" | "url" | "service" =
+                        isObj && typeof v.url === "string" && v.url.trim()
+                          ? "url"
+                          : isObj && typeof v.service === "string" && v.service.trim()
+                            ? "service"
+                            : "stdio";
+                      const isForm =
+                        isObj &&
+                        ((connectionType === "stdio" && typeof v.command === "string" && v.command.trim()) ||
+                          (connectionType === "url" && typeof v.url === "string" && v.url.trim()) ||
+                          (connectionType === "service" &&
+                            typeof v.service === "string" &&
+                            v.service.trim() &&
+                            typeof v.serviceUrl === "string" &&
+                            v.serviceUrl.trim()));
+                      items.push({
+                        id: generateUUID(),
+                        key: k,
+                        editMode: isForm ? "form" : "raw",
+                        connectionType,
+                        draft: isForm ? (v as any) : { command: "npx", args: [], env: {} },
+                        rawJson: isObj ? JSON.stringify(v, null, 2) : "{}",
+                        rawError: null,
+                        collapsed: true,
+                      });
+                    }
+                    return items;
+                  };
+                  state.digitalEmployeeEditModalOpen = true;
+                  state.digitalEmployeeEditId = manifest.id;
+                  state.digitalEmployeeEditName = manifest.name || manifest.id;
+                  state.digitalEmployeeEditDescription = manifest.description ?? "";
+                  state.digitalEmployeeEditPrompt = manifest.prompt ?? "";
+                  state.digitalEmployeeEditMcpJson =
+                    manifest.mcpServers && Object.keys(manifest.mcpServers).length > 0
+                      ? JSON.stringify(manifest.mcpServers, null, 2)
+                      : "";
+                  state.digitalEmployeeEditMcpMode = "builder";
+                  state.digitalEmployeeEditMcpItems = buildEditMcpItems(manifest.mcpServers);
+                  state.digitalEmployeeEditSkillNames =
+                    (emp?.skillNames ?? emp?.skillIds ?? manifest.skillIds ?? []) as string[];
+                  state.digitalEmployeeEditSkillFilesToUpload = [];
+                  state.digitalEmployeeEditSkillsToDelete = [];
+                  state.digitalEmployeeEditEnabled = manifest.enabled !== false;
+                  state.digitalEmployeeEditError = null;
                 },
-              })
+                installedIds: new Set(
+                  state.employeeMarketItems
+                    .filter((it) => typeof it.id === "string" && String(it.id).startsWith("local:"))
+                    .map((it) => String(it.id)),
+                ),
+                installedRemoteIds: state.employeeMarketInstalledRemoteIds,
+                remoteToLocalMap: state.employeeMarketRemoteToLocal,
+                installingId: state.employeeMarketInstallingId,
+                });
+              })()
             : nothing
         }
 
+        ${state.tab === "employeeMarket" && state.digitalEmployeeCreateModalOpen
+          ? (() => {
+              const onRefreshEmp = async () => {
+                state.employeeMarketLoading = true;
+                state.employeeMarketError = null;
+                try {
+                  const category =
+                    state.employeeMarketCategory && state.employeeMarketCategory !== "__all__"
+                      ? state.employeeMarketCategory
+                      : undefined;
+                  state.employeeMarketItems = await fetchEmployees(
+                    { q: state.employeeMarketQuery, category },
+                    { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                  );
+                } catch (err) {
+                  state.employeeMarketError = (err as any)?.message ? String((err as any).message) : String(err);
+                } finally {
+                  state.employeeMarketLoading = false;
+                }
+              };
+              return renderDigitalEmployeeCreateModal({
+                createModalOpen: state.digitalEmployeeCreateModalOpen,
+                createName: state.digitalEmployeeCreateName,
+                createDescription: state.digitalEmployeeCreateDescription,
+                createPrompt: state.digitalEmployeeCreatePrompt,
+                createError: state.digitalEmployeeCreateError,
+                createBusy: state.digitalEmployeeCreateBusy,
+                advancedOpen: state.digitalEmployeeAdvancedOpen,
+                createMcpMode: state.digitalEmployeeCreateMcpMode,
+                mcpJson: state.digitalEmployeeCreateMcpJson,
+                mcpItems: state.digitalEmployeeCreateMcpItems ?? [],
+                skillUploadName: state.digitalEmployeeSkillUploadName,
+                skillUploadFiles: state.digitalEmployeeSkillUploadFiles ?? [],
+                skillUploadError: state.digitalEmployeeSkillUploadError,
+                onMcpJsonChange: (v) => (state.digitalEmployeeCreateMcpJson = v),
+                onMcpModeChange: (m) => (state.digitalEmployeeCreateMcpMode = m),
+                onMcpAddItem: () => {
+                  const next = state.digitalEmployeeCreateMcpItems ?? [];
+                  state.digitalEmployeeCreateMcpItems = [
+                    ...next,
+                    {
+                      id: generateUUID(),
+                      key: "",
+                      editMode: "form",
+                      connectionType: "stdio",
+                      draft: { command: "npx", args: [], env: {} },
+                      rawJson: "{}",
+                      rawError: null,
+                      collapsed: false,
+                    },
+                  ];
+                },
+                onMcpRemoveItem: (id) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).filter(
+                    (it) => it.id !== id,
+                  );
+                },
+                onMcpCollapsedChange: (id, collapsed) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).map((it) =>
+                    it.id === id ? { ...it, collapsed } : it,
+                  );
+                },
+                onMcpKeyChange: (id, key) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).map((it) =>
+                    it.id === id ? { ...it, key } : it,
+                  );
+                },
+                onMcpEditModeChange: (id, mode) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).map((it) =>
+                    it.id === id ? { ...it, editMode: mode } : it,
+                  );
+                },
+                onMcpConnectionTypeChange: (id, type) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).map((it) =>
+                    it.id === id ? { ...it, connectionType: type } : it,
+                  );
+                },
+                onMcpFormPatch: (id, patch) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).map((it) =>
+                    it.id === id ? { ...it, draft: { ...(it.draft ?? {}), ...(patch ?? {}) } } : it,
+                  );
+                },
+                onMcpRawChange: (id, json) => {
+                  state.digitalEmployeeCreateMcpItems = (state.digitalEmployeeCreateMcpItems ?? []).map((it) =>
+                    it.id === id ? { ...it, rawJson: json, rawError: null } : it,
+                  );
+                },
+                onCreateClose: () => {
+                  if (state.digitalEmployeeCreateBusy) return;
+                  state.digitalEmployeeCreateModalOpen = false;
+                  state.digitalEmployeeCreateError = null;
+                  state.digitalEmployeeAdvancedOpen = false;
+                  state.digitalEmployeeCreateMcpMode = "builder";
+                  state.digitalEmployeeCreateMcpJson = "";
+                  state.digitalEmployeeCreateMcpItems = [];
+                  state.digitalEmployeeSkillUploadName = "";
+                  state.digitalEmployeeSkillUploadFiles = [];
+                  state.digitalEmployeeSkillUploadError = null;
+                },
+                onCreateNameChange: (v) => (state.digitalEmployeeCreateName = v),
+                onCreateDescriptionChange: (v) => (state.digitalEmployeeCreateDescription = v),
+                onCreatePromptChange: (v) => (state.digitalEmployeeCreatePrompt = v),
+                onToggleAdvanced: () => (state.digitalEmployeeAdvancedOpen = !state.digitalEmployeeAdvancedOpen),
+                onSkillUploadNameChange: (v) => (state.digitalEmployeeSkillUploadName = v),
+                onSkillUploadFilesChange: (f) => (state.digitalEmployeeSkillUploadFiles = f ?? []),
+                onCreateSubmit: async () => {
+                  if (state.digitalEmployeeCreateMcpMode === "builder") {
+                    const items = state.digitalEmployeeCreateMcpItems ?? [];
+                    const servers: Record<string, unknown> = {};
+                    const seen = new Set<string>();
+                    let firstError: string | null = null;
+                    const nextItems = items.map((it) => ({ ...it, rawError: null as string | null }));
+                    for (let i = 0; i < nextItems.length; i++) {
+                      const it = nextItems[i];
+                      const key = it.key?.trim() ?? "";
+                      if (!key) continue;
+                      if (seen.has(key)) {
+                        firstError ??= `MCP key 重复：${key}`;
+                        continue;
+                      }
+                      seen.add(key);
+                      if (it.editMode === "raw") {
+                        const raw = it.rawJson?.trim() ?? "";
+                        if (!raw) continue;
+                        try {
+                          const parsed = JSON.parse(raw) as unknown;
+                          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                            it.rawError = "JSON 必须是对象";
+                            firstError ??= `MCP ${key} 的 JSON 无效`;
+                            continue;
+                          }
+                          servers[key] = parsed;
+                        } catch {
+                          it.rawError = "JSON 格式无效";
+                          firstError ??= `MCP ${key} 的 JSON 无效`;
+                          continue;
+                        }
+                      } else {
+                        const entry = it.draft ?? {};
+                        if (it.connectionType === "stdio" && !(entry as { command?: string }).command?.trim()) {
+                          firstError ??= `MCP ${key} 缺少 command`;
+                          continue;
+                        }
+                        if (it.connectionType === "url" && !(entry as { url?: string }).url?.trim()) {
+                          firstError ??= `MCP ${key} 缺少 url`;
+                          continue;
+                        }
+                        if (
+                          it.connectionType === "service" &&
+                          (!(entry as { service?: string }).service?.trim() ||
+                            !(entry as { serviceUrl?: string }).serviceUrl?.trim())
+                        ) {
+                          firstError ??= `MCP ${key} 缺少 service/serviceUrl`;
+                          continue;
+                        }
+                        servers[key] = entry;
+                      }
+                    }
+                    state.digitalEmployeeCreateMcpItems = nextItems;
+                    state.digitalEmployeeCreateMcpJson =
+                      Object.keys(servers).length > 0 ? JSON.stringify(servers, null, 2) : "";
+                    if (firstError) {
+                      state.digitalEmployeeCreateError = firstError;
+                      return;
+                    }
+                  }
+                  await createDigitalEmployee(state);
+                  if (!state.digitalEmployeeCreateError) {
+                    state.digitalEmployeeCreateModalOpen = false;
+                    state.digitalEmployeeAdvancedOpen = false;
+                    void onRefreshEmp();
+                  }
+                },
+              });
+            })()
+          : nothing}
+
         ${
-          state.tab === "skills"
-            ? renderSkills({
-                loading: state.skillsLoading,
-                report: state.skillsReport,
-                error: state.skillsError,
-                filter: state.skillsFilter,
-                edits: state.skillEdits,
-                messages: state.skillMessages,
-                busyKey: state.skillsBusyKey,
-                viewMode: state.skillsViewMode,
-                onViewModeChange: (mode) => (state.skillsViewMode = mode),
+          state.tab === "skillLibrary"
+            ? (() => {
+                const onRefresh = async () => {
+                  state.skillLibraryLoading = true;
+                  state.skillLibraryError = null;
+                  try {
+                    const category =
+                      state.skillLibraryCategory && state.skillLibraryCategory !== "__all__"
+                        ? state.skillLibraryCategory
+                        : undefined;
+                    const status =
+                      state.skillLibraryStatus && state.skillLibraryStatus !== "__all__"
+                        ? state.skillLibraryStatus
+                        : undefined;
+                    state.skillLibraryItems = await fetchSkills(
+                      { q: state.skillLibraryQuery, category, status },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    );
+                  } catch (err) {
+                    state.skillLibraryError = (err as any)?.message ? String((err as any).message) : String(err);
+                  } finally {
+                    state.skillLibraryLoading = false;
+                  }
+                };
+
+                if (!state.skillLibraryLoadedOnce && !state.skillLibraryLoading) {
+                  state.skillLibraryLoadedOnce = true;
+                  queueMicrotask(() => void onRefresh());
+                }
+
+                return renderSkillLibrary({
+                loading: state.skillLibraryLoading,
+                error: state.skillLibraryError,
+                installSuccess: state.skillLibraryInstallSuccess,
+                query: state.skillLibraryQuery,
+                selectedCategory: state.skillLibraryCategory,
+                selectedStatus: state.skillLibraryStatus,
+                items: state.skillLibraryItems,
+                selectedFolder: state.skillLibrarySelectedFolder,
+                selectedDetail: state.skillLibrarySelectedDetail,
+                installedKeys: new Set([
+                  ...(state.skillsReport?.skills ?? []).map((entry) => entry.skillKey),
+                  ...(state.skillLibraryItems ?? []).filter((s) => s.installed).map((s) => s.folder),
+                ]),
+                disabledKeys: new Set(
+                  (state.skillsReport?.skills ?? []).filter((e) => e.disabled).map((e) => e.skillKey),
+                ),
+                installingFolder: state.skillLibraryInstallingFolder,
+                onInstall: async (folder, category) => {
+                  state.skillLibraryInstallingFolder = folder;
+                  state.skillLibraryError = null;
+                  state.skillLibraryInstallSuccess = null;
+                  try {
+                    const res = await installFromSite(
+                      { kind: "skill", id: folder, type: category, category },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    );
+                    await loadSkills(state);
+                    await onRefresh();
+                    const id = res?.id ?? folder;
+                    const cat = (res?.type ?? res?.category ?? category ?? "").trim();
+                    state.skillLibraryInstallSuccess = cat ? `安装成功：${id}（${cat}）` : `安装成功：${id}`;
+                    setTimeout(() => {
+                      state.skillLibraryInstallSuccess = null;
+                    }, 5000);
+                  } catch (err) {
+                    state.skillLibraryError = (err as Error)?.message ?? String(err);
+                  } finally {
+                    state.skillLibraryInstallingFolder = null;
+                  }
+                },
+                onDelete: async (folder) => {
+                  state.skillLibraryError = null;
+                  await deleteSkill(state, folder);
+                  if (state.skillsError) {
+                    state.skillLibraryError = state.skillsError;
+                  } else {
+                    await onRefresh();
+                    state.skillLibrarySelectedFolder = null;
+                    state.skillLibrarySelectedDetail = null;
+                  }
+                },
+                onToggleEnabled: async (folder, enabled) => {
+                  state.skillLibraryError = null;
+                  await updateSkillEnabled(state, folder, enabled);
+                  if (state.skillsError) {
+                    state.skillLibraryError = state.skillsError;
+                  } else {
+                    await onRefresh();
+                  }
+                },
+                onQueryChange: (next) => (state.skillLibraryQuery = next),
+                onCategoryChange: (next) => (state.skillLibraryCategory = next),
+                onStatusChange: (next) => (state.skillLibraryStatus = next),
+                onRefresh: async () => {
+                    await onRefresh();
+                },
+                onSelect: async (folder) => {
+                  state.skillLibrarySelectedFolder = folder || null;
+                  state.skillLibrarySelectedDetail = null;
+                  state.skillLibraryError = null;
+                  if (!folder) return;
+                  try {
+                    state.skillLibrarySelectedDetail = await fetchSkillDetail(folder, {
+                      gatewayHost: state.settings?.gatewayUrl?.trim(),
+                      token: state.settings?.token?.trim(),
+                    });
+                  } catch (err) {
+                    state.skillLibraryError = (err as any)?.message ? String((err as any).message) : String(err);
+                  }
+                },
+                onDetailClose: () => {
+                  state.skillLibrarySelectedFolder = null;
+                  state.skillLibrarySelectedDetail = null;
+                },
                 addModalOpen: state.skillsAddModalOpen,
                 uploadName: state.skillsUploadName,
-                uploadFiles: state.skillsUploadFiles ?? [],
+                uploadFiles: state.skillsUploadFiles,
                 uploadError: state.skillsUploadError,
                 uploadTemplate: state.skillsUploadTemplate,
                 uploadBusy: state.skillsUploadBusy,
-                onFilterChange: (next) => (state.skillsFilter = next),
-                onRefresh: () => loadSkills(state, { clearMessages: true }),
                 onAddClick: () => {
                   state.skillsAddModalOpen = true;
                   state.skillsUploadName = "";
@@ -1151,116 +1767,113 @@ export function renderApp(state: AppViewState) {
                   state.skillsUploadTemplate = null;
                 },
                 onUploadNameChange: (next) => (state.skillsUploadName = next),
-                onUploadFilesChange: (files) => {
-                  state.skillsUploadFiles = files ?? [];
-                  // 选择单个文件时，如果没填名称则自动根据文件名填充，仍允许用户覆盖。
-                  if ((files?.length ?? 0) === 1) {
-                    const f = files[0];
-                    const current = state.skillsUploadName?.trim() ?? "";
-                    if (!current) {
-                      const derived = f?.name?.replace(/\.(zip|md)$/i, "").trim();
-                      state.skillsUploadName = derived ?? "";
-                    }
-                  } else if ((files?.length ?? 0) > 1) {
-                    state.skillsUploadName = "";
-                  }
-                },
+                onUploadFilesChange: (files) => (state.skillsUploadFiles = files ?? []),
                 onUploadSubmit: async () => {
                   const files = state.skillsUploadFiles ?? [];
+                  const name = state.skillsUploadName?.trim() ?? "";
                   if (files.length === 0) return;
-                  if (files.length === 1 && !state.skillsUploadName.trim()) return;
                   state.skillsUploadBusy = true;
                   state.skillsUploadError = null;
-                  state.skillsUploadTemplate = null;
-                  const deriveName = (fileName: string) =>
-                    fileName
-                      .trim()
-                      .replace(/\.tar\.gz$/i, "")
-                      .replace(/\.tgz$/i, "")
-                      .replace(/\.zip$/i, "")
-                      .replace(/\.md$/i, "")
-                      .trim();
-                  let result: { ok: boolean; error?: string; template?: string } = { ok: true };
-                  for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    const name =
-                      files.length === 1
-                        ? state.skillsUploadName.trim()
-                        : deriveName(file.name) || "";
-                    if (!name) {
-                      state.skillsUploadError = `无法从文件名提取技能名称：${file.name}`;
-                      result = { ok: false, error: state.skillsUploadError };
-                      break;
-                    }
-                    result = await uploadSkill(
-                      { ...state, gatewayUrl: state.settings.gatewayUrl },
-                      name,
-                      file,
-                    );
-                    if (!result.ok) {
-                      state.skillsUploadError =
-                        (files.length > 1 ? `上传 ${file.name} 失败：` : "") +
-                        (result.error ?? "Upload failed");
-                      state.skillsUploadTemplate = result.template ?? null;
-                      break;
-                    }
+                  state.skillLibraryError = null;
+                  const gatewayUrl = state.settings?.gatewayUrl?.trim();
+                  if (!gatewayUrl) {
+                    state.skillsUploadError = "Gateway URL 未配置";
+                    state.skillsUploadBusy = false;
+                    return;
                   }
-                  state.skillsUploadBusy = false;
-                  if (result.ok) {
-                    state.skillsAddModalOpen = false;
-                    state.skillsUploadName = "";
-                    state.skillsUploadFiles = [];
-                    loadSkills(state, { clearMessages: true });
+                  const skillState = {
+                    gatewayUrl,
+                    token: state.settings?.token?.trim(),
+                  } as Parameters<typeof uploadSkill>[0];
+                  try {
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const skillName =
+                        files.length > 1
+                          ? file.name.replace(/\.(zip|md)$/i, "").replace(/[^a-zA-Z0-9_-]/g, "-")
+                          : name || file.name.replace(/\.(zip|md)$/i, "").replace(/[^a-zA-Z0-9_-]/g, "-");
+                      if (!skillName) {
+                        state.skillsUploadError = "技能名称不能为空";
+                        break;
+                      }
+                      const res = await uploadSkill(skillState, skillName, file);
+                      if (!res.ok) {
+                        state.skillsUploadError = res.error ?? "上传失败";
+                        state.skillsUploadTemplate = res.template ?? null;
+                        break;
+                      }
+                    }
+                    if (!state.skillsUploadError) {
+                      state.skillsAddModalOpen = false;
+                      state.skillsUploadName = "";
+                      state.skillsUploadFiles = [];
+                      state.skillsUploadTemplate = null;
+                      await loadSkills(state);
+                    }
+                  } finally {
+                    state.skillsUploadBusy = false;
                   }
                 },
-                onToggle: (key, enabled) => updateSkillEnabled(state, key, enabled),
-                onEdit: (key, value) => updateSkillEdit(state, key, value),
-                onSaveKey: (key) => saveSkillApiKey(state, key),
-                onInstall: (skillKey, name, installId) =>
-                  installSkill(state, skillKey, name, installId),
-                onDelete: (skillKey) => deleteSkill(state, skillKey),
-                selectedSkillKey: state.skillsSelectedSkillKey,
-                skillDocContent: state.skillsSkillDocContent,
-                skillDocLoading: state.skillsSkillDocLoading,
-                skillDocError: state.skillsSkillDocError,
-                onSkillDetailClick: (key) => {
-                  state.skillsSelectedSkillKey = key;
-                  if (key) {
-                    loadSkillDoc(state, key);
-                  } else {
-                    state.skillsSkillDocContent = null;
-                    state.skillsSkillDocError = null;
-                  }
-                },
-              })
+                });
+              })()
             : nothing
         }
 
         ${
-          state.tab === "mcp"
-            ? renderMcp({
-                servers:
-                  (state.configForm?.mcp as { servers?: Record<string, import("./views/mcp.ts").McpServerEntry> })
-                    ?.servers ?? {},
-                loading: state.configLoading,
-                saving: state.configSaving,
-                selectedKey: state.mcpSelectedKey,
-                viewMode: state.mcpViewMode,
+          state.tab === "toolLibrary"
+            ? (() => {
+                const onRefresh = async () => {
+                  state.toolLibraryLoading = true;
+                  state.toolLibraryError = null;
+                  try {
+                    state.toolLibraryItems = await fetchMcps(
+                      { q: state.toolLibraryQuery },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    );
+                    // 从 API 响应（含 .install-metadata.json）推导已安装状态
+                    const mcpItems = state.toolLibraryItems;
+                    const mcpInstalled = new Set<string>();
+                    const mcpMap = new Map<number, string>();
+                    for (const it of mcpItems) {
+                      if (it.installed && it.serverKey) {
+                        mcpInstalled.add(String(it.id));
+                        mcpMap.set(it.id, it.serverKey);
+                      }
+                    }
+                    state.toolLibraryInstalledRemoteIds = mcpInstalled;
+                    state.toolLibraryInstalledMcpMap = mcpMap;
+                  } catch (err) {
+                    state.toolLibraryError = (err as any)?.message ? String((err as any).message) : String(err);
+                  } finally {
+                    state.toolLibraryLoading = false;
+                  }
+                };
+
+                if (!state.toolLibraryLoadedOnce && !state.toolLibraryLoading) {
+                  state.toolLibraryLoadedOnce = true;
+                  queueMicrotask(() => void onRefresh());
+                }
+
+                const mcpServers = (state.configSnapshot?.config as { mcp?: { servers?: Record<string, { enabled?: boolean }> } } | undefined)?.mcp?.servers ?? {};
+                const disabledMcpKeys = new Set<string>();
+                for (const [k, v] of Object.entries(mcpServers)) {
+                  if (v?.enabled === false) disabledMcpKeys.add(k);
+                }
+                return renderToolLibrary({
+                loading: state.toolLibraryLoading,
+                error: state.toolLibraryError,
+                query: state.toolLibraryQuery,
+                  category: state.toolLibraryCategory,
+                  onCategoryChange: (next) => (state.toolLibraryCategory = next),
+                items: state.toolLibraryItems,
                 addModalOpen: state.mcpAddModalOpen,
                 addName: state.mcpAddName,
                 addDraft: (state.mcpAddDraft ?? {}) as import("./views/mcp.ts").McpServerEntry,
                 addConnectionType: state.mcpAddConnectionType,
                 addEditMode: state.mcpAddEditMode,
-                addFormDirty: true,
                 addRawJson: state.mcpAddRawJson,
                 addRawError: state.mcpAddRawError,
-                editMode: state.mcpEditMode,
-                editConnectionType: state.mcpEditConnectionType,
-                formDirty: state.mcpFormDirty,
-                rawJson: state.mcpRawJson,
-                rawError: state.mcpRawError,
-                onRefresh: () => handleMcpRefresh(state),
-                onViewModeChange: (mode) => handleMcpViewModeChange(state, mode),
+                saving: state.configSaving,
                 onAddServer: () => handleMcpAddServer(state),
                 onAddClose: () => handleMcpAddClose(state),
                 onAddNameChange: (name) => handleMcpAddNameChange(state, name),
@@ -1268,16 +1881,203 @@ export function renderApp(state: AppViewState) {
                 onAddRawChange: (json) => handleMcpAddRawChange(state, json),
                 onAddConnectionTypeChange: (type) => handleMcpAddConnectionTypeChange(state, type),
                 onAddEditModeChange: (mode) => handleMcpAddEditModeChange(state, mode),
-                onAddSubmit: () => handleMcpAddSubmit(state),
-                onSelect: (key) => handleMcpSelect(state, key),
-                onToggle: (key, enabled) => handleMcpToggle(state, key, enabled),
-                onFormPatch: (key, patch) => handleMcpFormPatch(state, key, patch),
-                onRawChange: (key, json) => handleMcpRawChange(state, key, json),
-                onEditModeChange: (mode) => (state.mcpEditMode = mode),
-                onEditConnectionTypeChange: (type) => handleMcpEditConnectionTypeChange(state, type),
-                onSave: () => handleMcpSave(state),
-                onCancel: () => handleMcpCancel(state),
-                onDelete: (key) => handleMcpDelete(state, key),
+                onAddSubmit: async () => {
+                  await handleMcpAddSubmit(state);
+                  await loadConfig(state);
+                },
+                selectedId: state.toolLibrarySelectedId,
+                selectedDetail: state.toolLibrarySelectedDetail,
+                installedRemoteIds: state.toolLibraryInstalledRemoteIds,
+                disabledMcpKeys,
+                installingId: state.toolLibraryInstallingId,
+                installedMcpMap: state.toolLibraryInstalledMcpMap,
+                onInstall: async (id, category) => {
+                  state.toolLibraryInstallingId = id;
+                  state.toolLibraryError = null;
+                  try {
+                    const res = await installFromSite(
+                      { kind: "mcp", id: String(id), type: category, category },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    );
+                    if (res?.id) {
+                      state.toolLibraryInstalledRemoteIds = new Set([...state.toolLibraryInstalledRemoteIds, String(id)]);
+                      state.toolLibraryInstalledMcpMap = new Map(state.toolLibraryInstalledMcpMap).set(id, res.id);
+                    }
+                    await loadConfig(state);
+                    await onRefresh();
+                  } catch (err) {
+                    state.toolLibraryError = (err as Error)?.message ?? String(err);
+                  } finally {
+                    state.toolLibraryInstallingId = null;
+                  }
+                },
+                onDelete: async (serverKey) => {
+                  state.toolLibraryError = null;
+                  handleMcpDelete(state, serverKey);
+                  let ridToRemove: number | null = null;
+                  for (const [rid, sk] of state.toolLibraryInstalledMcpMap) {
+                    if (sk === serverKey) {
+                      ridToRemove = rid;
+                      break;
+                    }
+                  }
+                  if (ridToRemove != null) {
+                    state.toolLibraryInstalledRemoteIds = new Set([...state.toolLibraryInstalledRemoteIds].filter((x) => x !== String(ridToRemove)));
+                    const next = new Map(state.toolLibraryInstalledMcpMap);
+                    next.delete(ridToRemove);
+                    state.toolLibraryInstalledMcpMap = next;
+                  }
+                  await onRefresh();
+                  state.toolLibrarySelectedId = null;
+                  state.toolLibrarySelectedDetail = null;
+                },
+                onToggleEnabled: async (serverKey, enabled) => {
+                  state.toolLibraryError = null;
+                  handleMcpToggle(state, serverKey, enabled);
+                  await onRefresh();
+                },
+                onEdit: (serverKey) => {
+                  if (!state.configForm && state.configSnapshot?.config) {
+                    state.configForm = cloneConfigObject(state.configSnapshot.config as Record<string, unknown>);
+                  }
+                  handleMcpSelect(state, serverKey);
+                  state.toolLibraryMcpEditModalOpen = true;
+                  state.toolLibraryMcpEditServerKey = serverKey;
+                },
+                onQueryChange: (next) => (state.toolLibraryQuery = next),
+                onRefresh: async () => {
+                    await onRefresh();
+                },
+                onSelect: async (id) => {
+                  state.toolLibrarySelectedId = id;
+                  state.toolLibrarySelectedDetail = null;
+                  state.toolLibraryError = null;
+                  try {
+                    state.toolLibrarySelectedDetail = await fetchMcpDetail(id, {
+                      gatewayHost: state.settings?.gatewayUrl?.trim(),
+                      token: state.settings?.token?.trim(),
+                    });
+                  } catch (err) {
+                    state.toolLibraryError = (err as any)?.message ? String((err as any).message) : String(err);
+                  }
+                },
+                onDetailClose: () => {
+                  state.toolLibrarySelectedId = null;
+                  state.toolLibrarySelectedDetail = null;
+                },
+                });
+              })()
+            : nothing
+        }
+
+        ${
+          state.tab === "tutorials"
+            ? (() => {
+                const onRefresh = async () => {
+                  state.tutorialsLoading = true;
+                  state.tutorialsError = null;
+                  try {
+                    state.tutorialCategories = await fetchEduCategories({
+                      gatewayHost: state.settings?.gatewayUrl?.trim(),
+                      token: state.settings?.token?.trim(),
+                    });
+                    if (!state.tutorialsSelectedCategoryId && state.tutorialCategories.length) {
+                      state.tutorialsSelectedCategoryId = state.tutorialCategories[0]?.id ?? null;
+                    } else if (state.tutorialsSelectedCategoryId) {
+                      const exists = state.tutorialCategories.some((c) => c.id === state.tutorialsSelectedCategoryId);
+                      if (!exists) {
+                        state.tutorialsSelectedCategoryId = state.tutorialCategories[0]?.id ?? null;
+                      }
+                    }
+                  } catch (err) {
+                    state.tutorialsError = (err as any)?.message ? String((err as any).message) : String(err);
+                  } finally {
+                    state.tutorialsLoading = false;
+                  }
+                };
+
+                if (!state.tutorialsLoadedOnce && !state.tutorialsLoading) {
+                  state.tutorialsLoadedOnce = true;
+                  queueMicrotask(() => void onRefresh());
+                }
+
+                return renderTutorials({
+                loading: state.tutorialsLoading,
+                error: state.tutorialsError,
+                categories: state.tutorialCategories,
+                query: state.tutorialsQuery,
+                selectedCategoryId: state.tutorialsSelectedCategoryId,
+                playingLink: state.tutorialsPlayingLink,
+                onQueryChange: (next) => (state.tutorialsQuery = next),
+                onSelectCategory: (id) => (state.tutorialsSelectedCategoryId = id),
+                onLessonClick: (link) => {
+                  if (toBilibiliEmbedUrl(link)) {
+                    state.tutorialsPlayingLink = link;
+                  } else {
+                    window.open(link, "_blank", "noopener,noreferrer");
+                  }
+                },
+                onPlayingClose: () => (state.tutorialsPlayingLink = null),
+                onRefresh: async () => {
+                    await onRefresh();
+                },
+                });
+              })()
+            : nothing
+        }
+
+        ${
+          state.tab === "aboutUs"
+            ? renderAbout({
+                basePath,
+                uninstallModalOpen: state.aboutUninstallModalOpen,
+                uninstallMode: state.aboutUninstallMode,
+                uninstallLoading: state.aboutUninstallLoading,
+                uninstallError: state.aboutUninstallError,
+                onOpenUninstallModal: () => {
+                  state.aboutUninstallModalOpen = true;
+                  state.aboutUninstallError = null;
+                  state.aboutUninstallMode = "program";
+                },
+                onCloseUninstallModal: () => {
+                  state.aboutUninstallModalOpen = false;
+                  state.aboutUninstallError = null;
+                },
+                onUninstallModeChange: (mode) => {
+                  state.aboutUninstallMode = mode;
+                },
+                onConfirmUninstall: async () => {
+                  const gw = state.settings?.gatewayUrl?.trim();
+                  if (!gw) {
+                    state.aboutUninstallError = "请先在 Overview 中配置 Gateway URL。";
+                    return;
+                  }
+                  state.aboutUninstallLoading = true;
+                  state.aboutUninstallError = null;
+                  try {
+                    const token = state.settings?.token?.trim() ?? "";
+                    const r = await requestDesktopUninstall({
+                      gatewayHost: gw,
+                      token,
+                      mode: state.aboutUninstallMode,
+                    });
+                    if (!r.ok) {
+                      state.aboutUninstallError = [r.message, r.detail].filter(Boolean).join(" — ");
+                      return;
+                    }
+                    state.aboutUninstallModalOpen = false;
+                    window.alert(r.message ?? "已安排卸载，桌面应用将自动退出。");
+                    try {
+                      window.close();
+                    } catch {
+                      /* embedded webview may ignore */
+                    }
+                  } catch (e) {
+                    state.aboutUninstallError = e instanceof Error ? e.message : String(e);
+                  } finally {
+                    state.aboutUninstallLoading = false;
+                  }
+                },
               })
             : nothing
         }
@@ -1292,11 +2092,15 @@ export function renderApp(state: AppViewState) {
                 search: state.llmTraceSearch,
                 enabled: state.llmTraceEnabled,
                 saving: state.llmTraceSaving,
+                viewContent: state.llmTraceViewContent,
+                viewingSessionId: state.llmTraceViewingSessionId,
+                viewLoading: state.llmTraceViewLoading,
                 onRefresh: () => handleLlmTraceRefresh(state),
                 onModeChange: (mode) => handleLlmTraceModeChange(state, mode),
                 onSearchChange: (value) => handleLlmTraceSearchChange(state, value),
                 onToggleEnabled: () => handleLlmTraceToggleEnabled(state),
                 onView: (sessionId) => handleLlmTraceView(state, sessionId),
+                onBack: () => handleLlmTraceBack(state),
                 onDownload: (sessionId) => handleLlmTraceDownload(state, sessionId),
               })
             : nothing
@@ -1416,13 +2220,14 @@ export function renderApp(state: AppViewState) {
         }
 
         ${
-          state.tab === "chat"
+          isChat
             ? renderChat({
                 sessionKey: state.sessionKey,
                 onSessionKeyChange: (next) => {
                   state.sessionKey = next;
                   state.chatMessage = "";
                   state.chatAttachments = [];
+                  state.chatModelRef = null;
                   state.chatStream = null;
                   state.chatStreamStartedAt = null;
                   state.chatRunId = null;
@@ -1440,6 +2245,70 @@ export function renderApp(state: AppViewState) {
                 },
                 thinkingLevel: state.chatThinkingLevel,
                 showThinking,
+                modelRef: state.chatModelRef,
+                defaultModelRef: resolveDefaultModelRef(configValue),
+                modelOptions: (() => {
+                  type ModelEntry = { id: string; name?: string };
+                  const cfg = configValue as
+                    | {
+                        agents?: { defaults?: { models?: Record<string, { alias?: string }> } };
+                        models?: { providers?: Record<string, { models?: ModelEntry[] }> };
+                      }
+                    | null;
+                  const defaultRef = resolveDefaultModelRef(configValue);
+                  const seen = new Set<string>();
+                  const opts: Array<{ value: string; label: string }> = [];
+
+                  // 1. agents.defaults.models（优先）
+                  const agentModels = cfg?.agents?.defaults?.models;
+                  if (agentModels && typeof agentModels === "object") {
+                    for (const [id, raw] of Object.entries(agentModels)) {
+                      const value = id.trim();
+                      if (!value || seen.has(value)) continue;
+                      seen.add(value);
+                      const alias =
+                        raw && typeof raw === "object" && "alias" in raw && typeof raw.alias === "string"
+                          ? raw.alias.trim()
+                          : "";
+                      const label = alias && alias !== value ? `${alias} (${value})` : value;
+                      opts.push({ value, label });
+                    }
+                  }
+
+                  // 2. models.providers 中的模型（补充）
+                  const providers = cfg?.models?.providers;
+                  if (providers && typeof providers === "object") {
+                    for (const [providerKey, prov] of Object.entries(providers)) {
+                      const models = prov && typeof prov === "object" ? (prov as { models?: ModelEntry[] }).models : undefined;
+                      if (!Array.isArray(models)) continue;
+                      for (const m of models) {
+                        const modelId = m?.id?.trim();
+                        if (!modelId) continue;
+                        const value = `${providerKey}/${modelId}`;
+                        if (seen.has(value)) continue;
+                        seen.add(value);
+                        const label = m.name && m.name !== modelId ? `${m.name} (${value})` : value;
+                        opts.push({ value, label });
+                      }
+                    }
+                  }
+
+                  // 3. 默认模型不在列表中时补充
+                  if (defaultRef && !seen.has(defaultRef)) {
+                    opts.unshift({ value: defaultRef, label: defaultRef });
+                  }
+
+                  // 4. 若仍为空，至少提供「默认」选项
+                  if (opts.length === 0) {
+                    opts.push({
+                      value: defaultRef ?? "",
+                      label: defaultRef ? `默认 (${defaultRef})` : "默认",
+                    });
+                  }
+
+                  return opts;
+                })(),
+                onModelRefChange: (next) => (state.chatModelRef = next),
                 loading: state.chatLoading,
                 sending: state.chatSending,
                 compactionStatus: state.compactionStatus,
@@ -1695,7 +2564,7 @@ export function renderApp(state: AppViewState) {
                 },
                 onOpenEmployee: async (employeeId) => {
                   const idPart = employeeId.trim() || "default";
-                  await loadSessions(state, { activeMinutes: 10080, limit: 200 });
+                  await loadSessions(state, { activeMinutes: 10080, limit: 200, includeLastMessage: true });
                   const sessions = state.sessionsResult?.sessions ?? [];
                   const employeePatterns = [
                     `agent:main:employee:${idPart}:`,
@@ -1726,10 +2595,11 @@ export function renderApp(state: AppViewState) {
                   void state.loadAssistantIdentity();
                   void loadChatHistory(state);
                   void refreshChatAvatar(state);
-                  state.setTab("chat");
+                  state.setTab("message");
                   if (!existing) {
                     state.handleSendChat(
                       "当前已开启数字员工会话。请以你配置的人设（如有）向用户打招呼，保持你的语气、风格和情绪。用 1～3 句话问候并询问用户想做什么。",
+                      { refreshSessions: true },
                     );
                   }
                 },
@@ -2131,6 +3001,222 @@ export function renderApp(state: AppViewState) {
       </main>
       ${renderExecApprovalPrompt(state)}
       ${renderGatewayUrlConfirmation(state)}
+      ${
+        state.toolLibraryMcpEditModalOpen && state.toolLibraryMcpEditServerKey
+          ? (() => {
+              const sk = state.toolLibraryMcpEditServerKey;
+              const cfg = state.configForm ?? (state.configSnapshot?.config as Record<string, unknown> | null);
+              const mcp = cfg?.mcp as { servers?: Record<string, import("./views/mcp.ts").McpServerEntry> } | undefined;
+              const entry = (mcp?.servers?.[sk] ?? {}) as import("./views/mcp.ts").McpServerEntry;
+              return renderMcpEditModal({
+                open: true,
+                serverKey: sk,
+                entry,
+                editMode: state.mcpEditMode,
+                editConnectionType: state.mcpEditConnectionType,
+                formDirty: state.mcpFormDirty,
+                rawJson: state.mcpRawJson,
+                rawError: state.mcpRawError,
+                saving: state.configSaving,
+                onFormPatch: (key: string, patch: Partial<import("./views/mcp.ts").McpServerEntry>) => handleMcpFormPatch(state, key, patch),
+                onRawChange: (key: string, json: string) => handleMcpRawChange(state, key, json),
+                onEditModeChange: (mode: "form" | "raw") => (state.mcpEditMode = mode),
+                onEditConnectionTypeChange: (type: "stdio" | "url" | "service") => handleMcpEditConnectionTypeChange(state, type),
+                onSave: () => {
+                  handleMcpSave(state);
+                  state.toolLibraryMcpEditModalOpen = false;
+                  state.toolLibraryMcpEditServerKey = "";
+                  void loadConfig(state);
+                },
+                onCancel: () => {
+                  handleMcpCancel(state);
+                  state.toolLibraryMcpEditModalOpen = false;
+                  state.toolLibraryMcpEditServerKey = "";
+                },
+              });
+            })()
+          : nothing
+      }
+      ${
+        state.digitalEmployeeEditModalOpen
+          ? renderDigitalEmployeeEditModal({
+              editModalOpen: true,
+              editId: state.digitalEmployeeEditId,
+              editName: state.digitalEmployeeEditName,
+              editDescription: state.digitalEmployeeEditDescription,
+              editPrompt: state.digitalEmployeeEditPrompt,
+              editMcpJson: state.digitalEmployeeEditMcpJson,
+              editMcpMode: state.digitalEmployeeEditMcpMode,
+              editMcpItems: state.digitalEmployeeEditMcpItems ?? [],
+              onEditMcpModeChange: (mode) => {
+                state.digitalEmployeeEditMcpMode = mode;
+              },
+              onEditMcpAddItem: () => {
+                const next = state.digitalEmployeeEditMcpItems ?? [];
+                state.digitalEmployeeEditMcpItems = [
+                  ...next,
+                  {
+                    id: generateUUID(),
+                    key: "",
+                    editMode: "form",
+                    connectionType: "stdio",
+                    draft: { command: "npx", args: [], env: {} },
+                    rawJson: "{}",
+                    rawError: null,
+                    collapsed: false,
+                  },
+                ];
+              },
+              onEditMcpRemoveItem: (id) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).filter((it) => it.id !== id);
+              },
+              onEditMcpCollapsedChange: (id, collapsed) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).map((it) =>
+                  it.id === id ? { ...it, collapsed } : it,
+                );
+              },
+              onEditMcpKeyChange: (id, key) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).map((it) =>
+                  it.id === id ? { ...it, key } : it,
+                );
+              },
+              onEditMcpEditModeChange: (id, mode) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).map((it) =>
+                  it.id === id ? { ...it, editMode: mode } : it,
+                );
+              },
+              onEditMcpConnectionTypeChange: (id, type) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).map((it) =>
+                  it.id === id ? { ...it, connectionType: type } : it,
+                );
+              },
+              onEditMcpFormPatch: (id, patch) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).map((it) =>
+                  it.id === id ? { ...it, draft: { ...(it.draft ?? {}), ...(patch ?? {}) } } : it,
+                );
+              },
+              onEditMcpRawChange: (id, json) => {
+                state.digitalEmployeeEditMcpItems = (state.digitalEmployeeEditMcpItems ?? []).map((it) =>
+                  it.id === id ? { ...it, rawJson: json, rawError: null } : it,
+                );
+              },
+              editSkillNames: state.digitalEmployeeEditSkillNames ?? [],
+              editSkillFilesToUpload: state.digitalEmployeeEditSkillFilesToUpload ?? [],
+              editSkillsToDelete: state.digitalEmployeeEditSkillsToDelete ?? [],
+              editError: state.digitalEmployeeEditError,
+              editBusy: state.digitalEmployeeEditBusy,
+              onEditClose: () => {
+                if (state.digitalEmployeeEditBusy) return;
+                state.digitalEmployeeEditModalOpen = false;
+                state.digitalEmployeeEditError = null;
+                state.digitalEmployeeEditMcpMode = "raw";
+                state.digitalEmployeeEditMcpItems = [];
+              },
+              onEditDescriptionChange: (v) => {
+                state.digitalEmployeeEditDescription = v;
+              },
+              onEditPromptChange: (v) => {
+                state.digitalEmployeeEditPrompt = v;
+              },
+              onEditMcpJsonChange: (v) => {
+                state.digitalEmployeeEditMcpJson = v;
+              },
+              onEditSkillFilesChange: (files) => {
+                state.digitalEmployeeEditSkillFilesToUpload = files ?? [];
+              },
+              onEditSkillDelete: (name) => {
+                const list = state.digitalEmployeeEditSkillsToDelete ?? [];
+                if (!list.includes(name)) {
+                  state.digitalEmployeeEditSkillsToDelete = [...list, name];
+                }
+              },
+              onEditSkillUndoDelete: (name) => {
+                state.digitalEmployeeEditSkillsToDelete = (
+                  state.digitalEmployeeEditSkillsToDelete ?? []
+                ).filter((n) => n !== name);
+              },
+              onEditSubmit: async () => {
+                if (state.digitalEmployeeEditMcpMode === "builder") {
+                  const items = state.digitalEmployeeEditMcpItems ?? [];
+                  const servers: Record<string, unknown> = {};
+                  const seen = new Set<string>();
+                  let firstError: string | null = null;
+                  const nextItems = items.map((it) => ({ ...it, rawError: null as string | null }));
+                  for (let i = 0; i < nextItems.length; i++) {
+                    const it = nextItems[i];
+                    const key = it.key?.trim() ?? "";
+                    if (!key) continue;
+                    if (seen.has(key)) {
+                      firstError ??= `MCP key 重复：${key}`;
+                      continue;
+                    }
+                    seen.add(key);
+                    if (it.editMode === "raw") {
+                      const raw = it.rawJson?.trim() ?? "";
+                      if (!raw) continue;
+                      try {
+                        const parsed = JSON.parse(raw) as unknown;
+                        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                          it.rawError = "JSON 必须是对象";
+                          firstError ??= `MCP ${key} 的 JSON 无效`;
+                          continue;
+                        }
+                        servers[key] = parsed;
+                      } catch {
+                        it.rawError = "JSON 格式无效";
+                        firstError ??= `MCP ${key} 的 JSON 无效`;
+                        continue;
+                      }
+                    } else {
+                      const entry = it.draft ?? {};
+                      if (it.connectionType === "stdio" && !(entry as { command?: string }).command?.trim()) {
+                        firstError ??= `MCP ${key} 缺少 command`;
+                        continue;
+                      }
+                      if (it.connectionType === "url" && !(entry as { url?: string }).url?.trim()) {
+                        firstError ??= `MCP ${key} 缺少 url`;
+                        continue;
+                      }
+                      if (
+                        it.connectionType === "service" &&
+                        (!(entry as { service?: string }).service?.trim() ||
+                          !(entry as { serviceUrl?: string }).serviceUrl?.trim())
+                      ) {
+                        firstError ??= `MCP ${key} 缺少 service/serviceUrl`;
+                        continue;
+                      }
+                      servers[key] = entry;
+                    }
+                  }
+                  state.digitalEmployeeEditMcpItems = nextItems;
+                  state.digitalEmployeeEditMcpJson = Object.keys(servers).length > 0 ? JSON.stringify(servers, null, 2) : "";
+                  if (firstError) {
+                    state.digitalEmployeeEditError = firstError;
+                    return;
+                  }
+                }
+                await updateDigitalEmployee(state);
+                if (!state.digitalEmployeeEditError) {
+                  state.digitalEmployeeEditModalOpen = false;
+                  void loadDigitalEmployees(state);
+                  if (state.tab === "employeeMarket") {
+                    state.employeeMarketError = null;
+                    const category =
+                      state.employeeMarketCategory && state.employeeMarketCategory !== "__all__"
+                        ? state.employeeMarketCategory
+                        : undefined;
+                    void fetchEmployees(
+                      { q: state.employeeMarketQuery, category },
+                      { gatewayHost: state.settings?.gatewayUrl?.trim(), token: state.settings?.token?.trim() },
+                    ).then(
+                      (items) => (state.employeeMarketItems = items),
+                    );
+                  }
+                }
+              },
+            })
+          : nothing
+      }
     </div>
   `;
 }

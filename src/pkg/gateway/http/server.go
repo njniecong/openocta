@@ -30,7 +30,6 @@ import (
 	"github.com/openocta/openocta/pkg/paths"
 	"io"
 	"io/fs"
-	"log"
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
@@ -312,48 +311,91 @@ func NewServer(addr string, version string) *Server {
 	return s
 }
 
+// isAPIPath returns true if the path should be handled by the mux (API routes), not the frontend.
+func isAPIPath(path string) bool {
+	return strings.HasPrefix(path, "/_ready") ||
+		strings.HasPrefix(path, "/_dist_debug") ||
+		strings.HasPrefix(path, "/api/") ||
+		path == "/ws" || strings.HasPrefix(path, "/ws/") || strings.HasPrefix(path, "/ws?") ||
+		strings.HasPrefix(path, "/health") ||
+		strings.HasPrefix(path, "/hooks") ||
+		strings.HasPrefix(path, "/debug/")
+}
+
 // Handler returns the HTTP handler for testing (e.g. httptest).
 // Wraps mux to handle WebSocket upgrade on root path (ws://host:port) for TS compatibility.
+// 非 API 路径的 GET/HEAD 直接走 handleDist，避免 ServeMux 在 app 环境下匹配异常导致 404。
 func (s *Server) Handler() http.Handler {
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" && r.Method == "GET" && strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 			s.handleWSUpgrade(w, r)
 			return
 		}
+		// 非 API 路径的 GET/HEAD 直接走前端静态服务，不依赖 ServeMux 匹配
+		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && !isAPIPath(r.URL.Path) {
+			s.handleDist(w, r)
+			return
+		}
 		s.mux.ServeHTTP(w, r)
 	})
 
-	// todo： 生产环境建议去掉，仅用于开发环境
-	httpTraceDir := filepath.Join(".", ".claude-trace")
-	writer, err := middleware.NewFileHTTPTraceWriter(httpTraceDir)
-	var handler http.Handler
-	if err != nil {
-		log.Printf("HTTP trace disabled: %v", err)
-	} else {
-		httpTrace := middleware.NewHTTPTraceMiddleware(
-			writer,
-			middleware.WithHTTPTraceMaxBodyBytes(2<<20),
-		)
-		handler = httpTrace.Wrap(handlerFunc) // mux 为业务 handler
+	// todo： 生产环境建议去掉，仅用于开发环境。桌面 app 下禁用 trace 避免干扰响应。
+	var handler http.Handler = handlerFunc
+	if os.Getenv("OPENOCTA_RUN_MODE") != "desktop" {
+		httpTraceDir := filepath.Join(".", ".claude-trace")
+		if writer, err := middleware.NewFileHTTPTraceWriter(httpTraceDir); err == nil {
+			httpTrace := middleware.NewHTTPTraceMiddleware(
+				writer,
+				middleware.WithHTTPTraceMaxBodyBytes(2<<20),
+			)
+			handler = httpTrace.Wrap(handlerFunc)
+		}
 	}
 	return handler
 }
 
 func (s *Server) registerRoutes() {
+	// 桌面应用健康检查（无需认证，不依赖前端）
+	s.mux.HandleFunc("GET /_ready", s.handleReady)
+	s.mux.HandleFunc("GET /_dist_debug", s.handleDistDebug)
 	// Serve frontend (./dist) at root for local dev / single-binary use.
-	// Most-specific patterns (e.g. /api/, /ws) still win over this catch-all.
+	// GET / 在 Go 1.22 中因末尾为 / 成为前缀匹配，会匹配 /、/assets/xxx 等所有路径。
+	// 更具体的路由（/api/、/ws 等）优先匹配。
 	s.mux.Handle("GET /", http.HandlerFunc(s.handleDist))
-	s.mux.HandleFunc("GET /health", s.handleHealth)
-	s.mux.HandleFunc("GET /api/health", s.handleHealth)
-	s.mux.HandleFunc("POST /api/skills/upload", s.handleSkillsUpload)
-	s.mux.HandleFunc("POST /api/employee-skills/upload", s.handleEmployeeSkillsUpload)
+	s.mux.HandleFunc("GET /health", s.requireGatewayToken(s.handleHealth))
+	s.mux.HandleFunc("GET /api/health", s.requireGatewayToken(s.handleHealth))
+	s.mux.HandleFunc("POST /api/skills/upload", s.requireGatewayToken(s.handleSkillsUpload))
+	s.mux.HandleFunc("POST /api/employee-skills/upload", s.requireGatewayToken(s.handleEmployeeSkillsUpload))
 	s.mux.HandleFunc("OPTIONS /api/employee-skills/upload", s.handleEmployeeSkillsUpload)
-	s.mux.HandleFunc("DELETE /api/employee-skills/delete", s.handleEmployeeSkillsDelete)
+	s.mux.HandleFunc("DELETE /api/employee-skills/delete", s.requireGatewayToken(s.handleEmployeeSkillsDelete))
 	s.mux.HandleFunc("OPTIONS /api/employee-skills/delete", s.handleEmployeeSkillsDelete)
-	s.mux.HandleFunc("GET /api/config", s.handleConfigGet)
-	s.mux.HandleFunc("GET /api/config/env", s.handleConfigEnv)
-	s.mux.HandleFunc("POST /api/config/patch", s.handleConfigPatch)
-	s.mux.HandleFunc("PATCH /api/config/patch", s.handleConfigPatch)
+	s.mux.HandleFunc("GET /api/config", s.requireGatewayToken(s.handleConfigGet))
+	s.mux.HandleFunc("GET /api/config/env", s.requireGatewayToken(s.handleConfigEnv))
+	s.mux.HandleFunc("POST /api/config/patch", s.requireGatewayToken(s.handleConfigPatch))
+	s.mux.HandleFunc("PATCH /api/config/patch", s.requireGatewayToken(s.handleConfigPatch))
+	s.mux.HandleFunc("POST /api/desktop/uninstall", s.requireGatewayToken(s.handleDesktopUninstall))
+	s.mux.HandleFunc("OPTIONS /api/desktop/uninstall", s.handleDesktopUninstallOptions)
+	s.mux.HandleFunc("POST /api/desktop/open-url", s.requireGatewayToken(s.handleDesktopOpenURL))
+	s.mux.HandleFunc("OPTIONS /api/desktop/open-url", s.handleDesktopOpenURLOptions)
+
+	// Site API proxies (employee market / skills / mcps / tutorials).
+	// Frontend calls Gateway same-origin; Gateway forwards to OPENOCTA_SITE_API_BASE_URL.
+	// CORS: allow dev UI (e.g. localhost:5173) to call gateway (e.g. 127.0.0.1:18900).
+	s.mux.HandleFunc("OPTIONS /api/v1/", s.handleSiteOptions)
+	s.mux.HandleFunc("GET /api/v1/employees", s.requireGatewayToken(s.handleSiteEmployees))
+	s.mux.HandleFunc("GET /api/v1/employees/{id}", s.requireGatewayToken(s.handleSiteEmployeeDetail))
+	s.mux.HandleFunc("GET /api/v1/employees/{id}/download", s.requireGatewayToken(s.handleSiteEmployeeDownload))
+	s.mux.HandleFunc("GET /api/v1/mcps", s.requireGatewayToken(s.handleSiteMcps))
+	s.mux.HandleFunc("GET /api/v1/mcps/{id}", s.requireGatewayToken(s.handleSiteMcpDetail))
+	s.mux.HandleFunc("GET /api/v1/mcps/{id}/download", s.requireGatewayToken(s.handleSiteMcpDownload))
+	s.mux.HandleFunc("GET /api/v1/skills", s.requireGatewayToken(s.handleSiteSkills))
+	s.mux.HandleFunc("GET /api/v1/skills/{folder}", s.requireGatewayToken(s.handleSiteSkillDetail))
+	s.mux.HandleFunc("GET /api/v1/skills/{folder}/download", s.requireGatewayToken(s.handleSiteSkillDownload))
+	s.mux.HandleFunc("GET /api/v1/edu/categories", s.requireGatewayToken(s.handleSiteEduCategories))
+	s.mux.HandleFunc("GET /api/v1/edu/lessons/{id}", s.requireGatewayToken(s.handleSiteEduLessonDetail))
+	s.mux.HandleFunc("GET /api/v1/site/uploads/{path...}", s.handleSiteUploads)
+	s.mux.HandleFunc("POST /api/v1/install", s.requireGatewayToken(s.handleSiteInstall))
+
 	//s.mux.HandleFunc("/api/", s.handleAPICatchAll)
 	//s.mux.HandleFunc("POST /v1/chat/completions", s.handleNotImplemented)
 	//s.mux.HandleFunc("POST /v1/responses", s.handleNotImplemented)
@@ -395,6 +437,28 @@ func resolveDistDirFile() (string, error) {
 	return "", fmt.Errorf("前端文件不存在，已尝试路径: %s", strings.Join(candidates, " / "))
 }
 
+// handleDistDebug returns JSON with distFS/distDir/distErr state for debugging 404.
+func (s *Server) handleDistDebug(w http.ResponseWriter, _ *http.Request) {
+	s.distOnce.Do(func() {
+		if efs, err := embed.FrontendFS(); err == nil {
+			if _, err := fs.Stat(efs, "index.html"); err == nil {
+				s.distFS = efs
+				return
+			}
+		}
+		s.distDir, s.distErr = resolveDistDirFile()
+	})
+	w.Header().Set("Content-Type", "application/json")
+	var distErrStr string
+	if s.distErr != nil {
+		distErrStr = s.distErr.Error()
+	}
+	body := fmt.Sprintf(`{"distFS":%t,"distDir":%q,"distErr":%q}`,
+		s.distFS != nil, s.distDir, distErrStr)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(body))
+}
+
 // handleDist serves the static frontend from the resolved dist directory.
 // - GET / returns dist/index.html (200, no redirect)
 // - GET /assets/... serves static files
@@ -414,6 +478,7 @@ func (s *Server) handleDist(w http.ResponseWriter, r *http.Request) {
 		s.distDir, s.distErr = resolveDistDirFile()
 	})
 	if s.distErr != nil {
+		// 500 而非 404，便于区分 embed 失败与路由问题
 		http.Error(w, s.distErr.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -502,6 +567,11 @@ func (s *Server) handleDist(w http.ResponseWriter, r *http.Request) {
 		rs = bytes.NewReader(data)
 	}
 	http.ServeContent(w, r, info.Name(), info.ModTime(), rs)
+}
+
+func (s *Server) handleReady(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {

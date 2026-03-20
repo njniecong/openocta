@@ -63,6 +63,7 @@ export type AppViewState = {
   compactionStatus: CompactionStatus | null;
   chatAvatarUrl: string | null;
   chatThinkingLevel: string | null;
+  chatModelRef: string | null;
   chatQueue: ChatQueueItem[];
   nodesLoading: boolean;
   nodes: Array<Record<string, unknown>>;
@@ -144,6 +145,7 @@ export type AppViewState = {
   agentSkillsAgentId: string | null;
   sessionsLoading: boolean;
   sessionsResult: SessionsListResult | null;
+  sessionEditingKey: string | null;
   sessionsError: string | null;
   sessionsFilterActive: string;
   sessionsFilterLimit: string;
@@ -233,6 +235,9 @@ export type AppViewState = {
   llmTraceSearch: string;
   llmTraceEnabled: boolean;
   llmTraceSaving: boolean;
+  llmTraceViewContent: string | null;
+  llmTraceViewingSessionId: string | null;
+  llmTraceViewLoading: boolean;
   // Security (replaces sandbox)
   securityForm: import("./controllers/security.js").SecurityConfigForm | Record<string, unknown> | null;
   // Approvals
@@ -301,6 +306,57 @@ export type AppViewState = {
   digitalEmployeeEditEnabled: boolean;
   digitalEmployeeEditError: string | null;
   digitalEmployeeEditBusy: boolean;
+  // Remote catalogs (employee market / skill library / tool library / tutorials)
+  employeeMarketLoadedOnce: boolean;
+  employeeMarketLoading: boolean;
+  employeeMarketError: string | null;
+  employeeMarketQuery: string;
+  employeeMarketCategory: string;
+  employeeMarketViewMode: "list" | "card";
+  employeeMarketItems: import("./controllers/remote-market.ts").EmployeeListItem[];
+  employeeMarketSelectedId: number | string | null;
+  employeeMarketSelectedDetail: import("./controllers/remote-market.ts").EmployeeDetail | null;
+  employeeMarketInstalledRemoteIds: Set<string>;
+  employeeMarketRemoteToLocal: Record<string, string>;
+  employeeMarketInstallingId: string | null;
+
+  skillLibraryLoadedOnce: boolean;
+  skillLibraryLoading: boolean;
+  skillLibraryError: string | null;
+  skillLibraryQuery: string;
+  skillLibraryCategory: string;
+  skillLibraryStatus: string;
+  skillLibraryItems: import("./controllers/remote-market.ts").SkillListItem[];
+  skillLibrarySelectedFolder: string | null;
+  skillLibrarySelectedDetail: import("./controllers/remote-market.ts").SkillDetail | null;
+  skillLibraryInstallingFolder: string | null;
+  skillLibraryInstallSuccess: string | null;
+
+  toolLibraryLoadedOnce: boolean;
+  toolLibraryLoading: boolean;
+  toolLibraryError: string | null;
+  toolLibraryQuery: string;
+  toolLibraryCategory: string;
+  toolLibraryItems: import("./controllers/remote-market.ts").McpListItem[];
+  toolLibrarySelectedId: number | null;
+  toolLibrarySelectedDetail: import("./controllers/remote-market.ts").McpDetail | null;
+  toolLibraryInstalledRemoteIds: Set<string>;
+  toolLibraryInstalledMcpMap: Map<number, string>;
+  toolLibraryInstallingId: number | null;
+  toolLibraryMcpEditModalOpen: boolean;
+  toolLibraryMcpEditServerKey: string;
+
+  tutorialsLoadedOnce: boolean;
+  tutorialsLoading: boolean;
+  tutorialsError: string | null;
+  tutorialCategories: import("./controllers/remote-market.ts").EduCategory[];
+  tutorialsQuery: string;
+  tutorialsSelectedCategoryId: number | null;
+  tutorialsPlayingLink: string | null;
+  aboutUninstallModalOpen: boolean;
+  aboutUninstallMode: "program" | "full";
+  aboutUninstallLoading: boolean;
+  aboutUninstallError: string | null;
   debugLoading: boolean;
   debugStatus: StatusSummary | null;
   debugHealth: HealthSnapshot | null;
@@ -375,7 +431,7 @@ export type AppViewState = {
   setPassword: (next: string) => void;
   setSessionKey: (next: string) => void;
   setChatMessage: (next: string) => void;
-  handleSendChat: (messageOverride?: string, opts?: { restoreDraft?: boolean }) => Promise<void>;
+  handleSendChat: (messageOverride?: string, opts?: { restoreDraft?: boolean; refreshSessions?: boolean }) => Promise<void>;
   handleAbortChat: () => Promise<void>;
   removeQueuedMessage: (id: string) => void;
   handleChatScroll: (event: Event) => void;

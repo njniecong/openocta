@@ -14,6 +14,7 @@ export type ChatHost = {
   connected: boolean;
   chatMessage: string;
   chatAttachments: ChatAttachment[];
+  chatModelRef?: string | null;
   chatQueue: ChatQueueItem[];
   chatRunId: string | null;
   chatSending: boolean;
@@ -104,7 +105,12 @@ async function sendChatMessageNow(
   },
 ) {
   resetToolStream(host as unknown as Parameters<typeof resetToolStream>[0]);
-  const runId = await sendChatMessage(host as unknown as OpenClawApp, message, opts?.attachments);
+  const runId = await sendChatMessage(
+    host as unknown as OpenClawApp,
+    message,
+    opts?.attachments,
+    host.chatModelRef ?? null,
+  );
   const ok = Boolean(runId);
   if (!ok && opts?.previousDraft != null) {
     host.chatMessage = opts.previousDraft;
@@ -159,7 +165,7 @@ export function removeQueuedMessage(host: ChatHost, id: string) {
 export async function handleSendChat(
   host: ChatHost,
   messageOverride?: string,
-  opts?: { restoreDraft?: boolean },
+  opts?: { restoreDraft?: boolean; refreshSessions?: boolean },
 ) {
   if (!host.connected) {
     return;
@@ -180,7 +186,7 @@ export async function handleSendChat(
     return;
   }
 
-  const refreshSessions = isChatResetCommand(message);
+  const refreshSessions = opts?.refreshSessions ?? isChatResetCommand(message);
   if (messageOverride == null) {
     host.chatMessage = "";
     // Clear attachments when sending
@@ -207,6 +213,7 @@ export async function refreshChat(host: ChatHost) {
     loadChatHistory(host as unknown as OpenClawApp),
     loadSessions(host as unknown as OpenClawApp, {
       activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+      includeLastMessage: true,
     }),
     refreshChatAvatar(host),
   ]);

@@ -2,7 +2,7 @@ import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
 import type { CronJob } from "../types.ts";
 import { DEFAULT_CRON_FORM } from "../app-defaults.ts";
-import { renderCron, type CronProps } from "./cron.ts";
+import { renderCronHistory, type CronProps } from "./cron.ts";
 
 function createJob(id: string): CronJob {
   return {
@@ -45,7 +45,7 @@ function createProps(overrides: Partial<CronProps> = {}): CronProps {
 describe("cron view", () => {
   it("prompts to select a job before showing run history", () => {
     const container = document.createElement("div");
-    render(renderCron(createProps()), container);
+    render(renderCronHistory(createProps()), container);
 
     expect(container.textContent).toContain("Select a job to inspect run history.");
   });
@@ -55,7 +55,7 @@ describe("cron view", () => {
     const onLoadRuns = vi.fn();
     const job = createJob("job-1");
     render(
-      renderCron(
+      renderCronHistory(
         createProps({
           jobs: [job],
           onLoadRuns,
@@ -76,7 +76,7 @@ describe("cron view", () => {
     const onLoadRuns = vi.fn();
     const job = createJob("job-1");
     render(
-      renderCron(
+      renderCronHistory(
         createProps({
           jobs: [job],
           runsJobId: "job-1",
@@ -102,7 +102,7 @@ describe("cron view", () => {
   it("renders run chat links when session keys are present", () => {
     const container = document.createElement("div");
     render(
-      renderCron(
+      renderCronHistory(
         createProps({
           basePath: "/ui",
           runsJobId: "job-1",
@@ -131,7 +131,7 @@ describe("cron view", () => {
     const container = document.createElement("div");
     const job = createJob("job-1");
     render(
-      renderCron(
+      renderCronHistory(
         createProps({
           jobs: [job],
           runsJobId: "job-1",

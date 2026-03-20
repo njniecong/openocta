@@ -10,9 +10,9 @@ import (
 	"strings"
 )
 
-// Assets embeds frontend, config-schema, openocta.json.example, .env, skills、employee_skills 与 employees（内置数字员工 YAML）。
+// Assets embeds frontend, config-schema, openocta.json.example, .env.
 //
-//go:embed frontend config-schema.json openocta.json.example .env skills employee_skills/* employees/*
+//go:embed frontend openocta.json.example .env
 var assets embed.FS
 
 func init() {
@@ -62,21 +62,4 @@ func ConfigSchemaJSON() ([]byte, error) {
 // ConfigExampleJSON returns the embedded openocta.json.example for initializing new configs.
 func ConfigExampleJSON() ([]byte, error) {
 	return fs.ReadFile(assets, "openocta.json.example")
-}
-
-// SkillsFS returns the embedded skills filesystem for loading built-in skills.
-// Returns nil if skills directory was not embedded (e.g. build without copy step).
-func SkillsFS() (fs.FS, error) {
-	return fs.Sub(assets, "skills")
-}
-
-// EmployeesFS 返回内置数字员工配置所在文件系统（embed/employees/*.yaml）。
-func EmployeesFS() (fs.FS, error) {
-	return fs.Sub(assets, "employees")
-}
-
-// AgentsSkillsFS 返回内置数字员工专属 skills 文件系统（embed/employee_skills/<employeeID>）。
-// 与 embed/skills 并列：员工还可使用 manifest.skillIds 引用 embed/skills 与 ~/.openocta/employee_skills 中的技能。
-func AgentsSkillsFS() (fs.FS, error) {
-	return fs.Sub(assets, "employee_skills")
 }

@@ -14,6 +14,37 @@ export type SessionsState = {
   sessionsIncludeUnknown: boolean;
 };
 
+export type SessionsCreateResult = {
+  ok: boolean;
+  key: string;
+  path: string;
+  sessionId: string;
+  entry: Record<string, unknown>;
+};
+
+export async function createSession(
+  state: SessionsState,
+  opts?: { label?: string },
+): Promise<SessionsCreateResult | null> {
+  if (!state.client || !state.connected) {
+    return null;
+  }
+  try {
+    const params: Record<string, unknown> = {};
+    if (opts?.label?.trim()) {
+      params.label = opts.label.trim();
+    }
+    const res = await state.client.request<SessionsCreateResult>("sessions.create", params);
+    if (res?.ok && res.key) {
+      await loadSessions(state);
+      return res;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadSessions(
   state: SessionsState,
   overrides?: {
@@ -21,6 +52,7 @@ export async function loadSessions(
     limit?: number;
     includeGlobal?: boolean;
     includeUnknown?: boolean;
+    includeLastMessage?: boolean;
   },
 ) {
   if (!state.client || !state.connected) {
@@ -45,6 +77,9 @@ export async function loadSessions(
     }
     if (limit > 0) {
       params.limit = limit;
+    }
+    if (overrides?.includeLastMessage) {
+      params.includeLastMessage = true;
     }
     const res = await state.client.request<SessionsListResult | undefined>("sessions.list", params);
     if (res) {
@@ -85,7 +120,7 @@ export async function patchSession(
   }
   try {
     await state.client.request("sessions.patch", params);
-    await loadSessions(state);
+    await loadSessions(state, { includeLastMessage: true });
   } catch (err) {
     state.sessionsError = String(err);
   }

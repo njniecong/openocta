@@ -459,12 +459,12 @@ func (s *Server) handleEmployeeSkillsUpload(w http.ResponseWriter, r *http.Reque
 				continue
 			}
 			clean := filepath.ToSlash(filepath.Clean(f.Name))
+			clean = strings.TrimPrefix(clean, "/")
 			if strings.Contains(clean, "..") {
 				continue
 			}
 			lower := strings.ToLower(clean)
 			if strings.HasSuffix(lower, "skill.md") {
-				// path.Dir works with / on all platforms
 				dir := path.Dir(clean)
 				if dir != "." {
 					prefix = dir + "/"
@@ -477,6 +477,7 @@ func (s *Server) handleEmployeeSkillsUpload(w http.ResponseWriter, r *http.Reque
 				continue
 			}
 			clean := filepath.ToSlash(filepath.Clean(f.Name))
+			clean = strings.TrimPrefix(clean, "/")
 			if strings.Contains(clean, "..") {
 				continue
 			}
@@ -484,7 +485,7 @@ func (s *Server) handleEmployeeSkillsUpload(w http.ResponseWriter, r *http.Reque
 			if prefix != "" && strings.HasPrefix(clean, prefix) {
 				rel = strings.TrimPrefix(clean, prefix)
 			}
-			if rel == "" || (rel == clean && strings.Contains(clean, "/")) {
+			if rel == "" || (prefix != "" && rel == clean) {
 				continue
 			}
 			dest := filepath.Join(targetDir, filepath.FromSlash(rel))

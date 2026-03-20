@@ -24,8 +24,10 @@ import {
   parseExecApprovalResolved,
   removeExecApproval,
 } from "./controllers/exec-approval.ts";
+import { loadConfigSchema } from "./controllers/config.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadSessions } from "./controllers/sessions.ts";
+import { gatewayWebSocketUrl } from "./gateway-url.ts";
 import { GatewayBrowserClient } from "./gateway.ts";
 
 type GatewayHost = {
@@ -124,7 +126,7 @@ export function connectGateway(host: GatewayHost) {
 
   host.client?.stop();
   host.client = new GatewayBrowserClient({
-    url: host.settings.gatewayUrl,
+    url: gatewayWebSocketUrl(host.settings.gatewayUrl),
     token: host.settings.token.trim() ? host.settings.token : undefined,
     password: host.password.trim() ? host.password : undefined,
     clientName: "openclaw-control-ui",
@@ -140,6 +142,7 @@ export function connectGateway(host: GatewayHost) {
       (host as unknown as { chatStream: string | null }).chatStream = null;
       (host as unknown as { chatStreamStartedAt: number | null }).chatStreamStartedAt = null;
       resetToolStream(host as unknown as Parameters<typeof resetToolStream>[0]);
+      void loadConfigSchema(host as unknown as OpenClawApp);
       void loadAssistantIdentity(host as unknown as OpenClawApp);
       void loadAgents(host as unknown as OpenClawApp);
       void loadNodes(host as unknown as OpenClawApp, { quiet: true });
@@ -150,7 +153,14 @@ export function connectGateway(host: GatewayHost) {
       host.connected = false;
       // Code 1012 = Service Restart (expected during config saves, don't show as error)
       if (code !== 1012) {
-        host.lastError = `disconnected (${code}): ${reason || "no reason"}`;
+        const r = (reason ?? "").trim();
+        if (r) {
+          host.lastError = r;
+        } else if (code === 1006) {
+          host.lastError = "连接失败，请检查后端地址和网络连接";
+        } else {
+          host.lastError = `连接断开 (${code})`;
+        }
       }
     },
     onEvent: (evt) => handleGatewayEvent(host, evt),
@@ -207,6 +217,7 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
         if (state === "final") {
           void loadSessions(host as unknown as OpenClawApp, {
             activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+            includeLastMessage: true,
           });
         }
       }

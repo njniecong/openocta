@@ -14,6 +14,7 @@ import (
 	agentSkills "github.com/openocta/openocta/pkg/agent/skills"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
+	"github.com/openocta/openocta/pkg/installmetadata"
 	"github.com/openocta/openocta/pkg/paths"
 )
 
@@ -1404,6 +1405,7 @@ func SkillsDeleteHandler(opts HandlerOpts) error {
 		}, nil)
 		return nil
 	}
+	_ = installmetadata.RemoveByRemoteID(env, "skill", params.SkillKey)
 
 	opts.Respond(true, map[string]interface{}{
 		"ok":       true,

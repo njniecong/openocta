@@ -14,17 +14,13 @@
 
 在 `dist/` 目录中，你通常会看到：
 
-- `openocta_<version>_<os>_<arch>.tar.gz`：Linux / macOS 压缩包
-- `openocta_<version>_<os>_<arch>.zip`：Windows 压缩包
-- `openocta_<version>_<os>_<arch>.deb`：Debian / Ubuntu 安装包
-- `openocta_<version>_<os>_<arch>.rpm`：RHEL / CentOS / Fedora 安装包
-- `openocta-docs_<version>.tar.gz`：仅包含文档的压缩包（`docs/`）
+- `openocta_<version>_linux_<arch>.tar.gz`：Linux 压缩包（GoReleaser）
+- `openocta_<version>_linux_<arch>.deb` / `.rpm`：Linux 安装包
+- `OpenOcta-<version>.dmg`：macOS 磁盘镜像（拖拽安装到「应用程序」）
+- `OpenOcta-amd64-installer.exe`：Windows 安装器（Wails 构建，`./build.sh wails-nsis`）
+- `openocta-docs_<version>.tar.gz`：仅包含文档的压缩包
 
-每个平台压缩包中都包含：
-
-- `openocta` 或 `openocta.exe` 可执行文件
-- `docs/` 目录：与 `src/docs` 同步的说明文档
-- Windows 压缩包中包含 `run-openocta.bat` 启动脚本（可双击运行）
+Linux 压缩包包含：`openocta` 可执行文件、`docs/` 目录。Windows/macOS 使用 Wails 构建的桌面应用，以原生窗口运行。
 
 ---
 
@@ -39,10 +35,10 @@
      - `sudo rpm -ivh openocta_<version>_linux_amd64.rpm`
 2. 安装后，systemd 服务会注册为 `openocta`，服务文件大致如下：
    - `/lib/systemd/system/openocta.service`
-3. 启动并设置开机自启：
-   - `sudo systemctl daemon-reload`
-   - `sudo systemctl enable openocta`
-   - `sudo systemctl start openocta`
+3. 安装后会自动：
+   - `daemon-reload`
+   - `enable openocta`（开机自启）
+   - `start openocta`（立即启动）
 4. 默认监听端口见配置文档（通常为 `gateway.port`，例如 18900）：
    - 在浏览器中访问 `http://<服务器IP>:<端口>` 即可。
 
@@ -60,16 +56,35 @@
 
 ## 三、macOS 安装与启动
 
-1. 解压：
-   - `tar -xzf openocta_<version>_darwin_amd64.tar.gz` 或 `openocta_<version>_darwin_arm64.tar.gz`
-2. 进入目录并运行：
-   - `cd openocta_<version>_darwin_<arch>`
-   - `chmod +x ./openocta`
-   - `./openocta gateway run`
-3. 如果遇到「来自未验证开发者」提示，可在「系统设置 → 隐私与安全性」中允许该二进制运行。
-4. 启动成功后，终端会输出访问地址，在浏览器中打开即可。
+### 方式一：OpenOcta.dmg（推荐）
 
-如需持久化运行，可自行编写 LaunchAgent/LaunchDaemon，ExecStart 命令与 `openocta.service` 类似：
+1. **获取安装包**：从发布页下载 `OpenOcta-<version>.dmg`，或本地执行 `./deploy/macos/build-app.sh` 或 `make wails-dmg` 生成。
+2. **打开映像**：双击 `.dmg` 会挂载只读卷（如 **`/Volumes/OpenOcta-Installer`**），Finder 打开窗口，内含 **OpenOcta**、指向本机「应用程序」的 **Applications** 快捷方式，以及 **安装说明.txt**。
+3. **安装（任选其一）**：
+   - **拖拽**：将 `OpenOcta` 拖到右侧「应用程序」文件夹图标上；或
+   - **对话框安装**：直接双击窗口中的 `OpenOcta` 启动，若系统弹出「是否安装到『应用程序』」对话框，选 **「安装」** 并输入管理员密码，完成后会自动从 `/Applications` 重新启动（推荐首次从 DMG 运行时使用）。
+4. **启动**：安装后在「应用程序」或启动台中双击 **OpenOcta**（英文名，无空格），以原生窗口打开（无需浏览器）。
+5. **首次运行**：若提示「无法验证开发者」，请右键 → 打开 → 再次确认打开。
+
+**找不到 OpenOcta？**
+
+- 在 **访达 → 应用程序** 或按 **⌘⇧G** 输入 `/Applications`，查找 **OpenOcta.app**；启动台图标可能略有延迟。
+- **勿混淆**：`/Volumes/...` 下的是 **DMG 挂载卷（只读）**，不是安装结果；安装后应用在 **`/Applications/OpenOcta.app`**。不要在 `/Volumes` 里用 `rm -rf` 强删，应在访达侧栏 **推出** 映像，或：`hdiutil detach "/Volumes/OpenOcta-Installer"`（卷名以 `ls /Volumes` 为准）。
+
+### 方式二：命令行运行（需 Linux 压缩包）
+
+1. 解压：`tar -xzf openocta_<version>_linux_amd64.tar.gz`（Linux 包在 macOS 上也可运行）
+2. 运行：`cd openocta_<version>_linux_<arch>` → `chmod +x ./openocta` → `./openocta gateway run`
+3. 在浏览器中访问终端输出的地址。
+
+### 开机自启（可选）
+
+如需开机自启，可安装 LaunchAgent（示例见 `deploy/macos/com.openocta.launcher.plist`）：
+
+- `cp deploy/macos/com.openocta.launcher.plist ~/Library/LaunchAgents/`
+- `launchctl load ~/Library/LaunchAgents/com.openocta.launcher.plist`
+
+如需持久化运行（非 App 形态），也可自行编写 LaunchAgent/LaunchDaemon，ExecStart 命令与 `openocta.service` 类似：
 
 - `openocta gateway run --port 18900`
 
@@ -77,19 +92,17 @@
 
 ## 四、Windows 安装与启动
 
-1. 解压：
-   - 使用资源管理器或 PowerShell：
-     - `Expand-Archive .\openocta_<version>_windows_amd64.zip`
-2. 启动（两种方式任选其一）：
-   - **方式一（推荐）**：双击解压目录中的 `run-openocta.bat`，脚本会自动执行 `openocta.exe gateway run` 并保持窗口打开；
-   - **方式二**：打开命令提示符（cmd）或 PowerShell，进入解压目录后执行：
-     - `.\openocta.exe gateway run`
-3. 命令行窗口会打印启动日志和访问地址，在浏览器中打开该地址即可。
+### 方式一：安装器（推荐，Wails 桌面应用）
 
-如需后台运行，可：
+1. **获取安装包**：从发布页下载 `OpenOcta-amd64-installer.exe`，或本地执行 `./build.sh wails-nsis`（需在 Windows 上运行）生成。
+2. **安装**：双击安装器 → 阅读版权声明并同意 → 选择安装目录 → 完成安装。
+3. **启动**：从开始菜单或桌面快捷方式打开 `OpenOcta`，应用以原生窗口打开（无需浏览器）。
 
-- 使用 NSSM / 服务管理工具将 `openocta.exe gateway run` 注册为 Windows 服务；
-- 或在计划任务中以登录时自动启动的方式运行。
+### 方式二：便携版（若有 .zip 压缩包）
+
+1. 解压：`Expand-Archive .\openocta_<version>_windows_amd64.zip`
+2. 运行：双击 `OpenOcta.exe` 或 `.\openocta.exe gateway run`
+3. 在浏览器中访问终端输出的地址。
 
 ---
 

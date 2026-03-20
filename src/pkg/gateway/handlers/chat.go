@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/openocta/openocta/embed"
+
 	"github.com/openocta/openocta/pkg/paths"
 	"os"
 	"path/filepath"
@@ -387,9 +387,8 @@ func buildSkillsSnapshotForSession(projectRoot string, cfg *config.OpenOctaConfi
 }
 
 // buildSkillsSnapshotForEmployee 针对数字员工会话构建 skills 快照：
-// 1) embed/agents_skills/<employeeID> 下的内置 skills
-// 2) ~/.openocta/employees/<employeeID>/skills 下的用户自建 skills
-// 3) manifest.skillIds 中引用的全局 skills（基于 workspace 加载并按名称过滤）
+// 1) ~/.openocta/employees/<employeeID>/skills 下的用户自建 skills
+// 2) manifest.skillIds 中引用的全局 skills（基于 workspace 加载并按名称过滤）
 func buildSkillsSnapshotForEmployee(projectRoot string, cfg *config.OpenOctaConfig, employeeID string) interface{} {
 	env := func(k string) string { return os.Getenv(k) }
 
@@ -405,18 +404,7 @@ func buildSkillsSnapshotForEmployee(projectRoot string, cfg *config.OpenOctaConf
 	// 员工 manifest：若不存在则只依赖内置目录。
 	m, _ := employees.LoadManifest(employeeID, env)
 
-	// 1) embed/employee_skills/<employeeID>
-	if fsys, err := embed.AgentsSkillsFS(); err == nil {
-		if entries, err := agentSkills.LoadEntriesFromFS(fsys, employeeID, "employee-embedded"); err == nil {
-			for _, e := range entries {
-				if e.Name != "" {
-					merged[e.Name] = e
-				}
-			}
-		}
-	}
-
-	// 2) ~/.openocta/employees/<employeeID>/skills（旧路径，保留兼容）
+	// 1) ~/.openocta/employees/<employeeID>/skills（旧路径，保留兼容）
 	employeesRoot := employees.ResolveEmployeesDir(env)
 	legacySkillsDir := filepath.Join(employeesRoot, employeeID, "skills")
 	if entries, err := agentSkills.LoadEntriesFromDir(legacySkillsDir, "employee-managed"); err == nil {
@@ -427,7 +415,7 @@ func buildSkillsSnapshotForEmployee(projectRoot string, cfg *config.OpenOctaConf
 		}
 	}
 
-	// 3) ~/.openocta/employee_skills/<employeeID>（新路径，上传专属技能）
+	// 2) ~/.openocta/employee_skills/<employeeID>（新路径，上传专属技能）
 	stateDir := paths.ResolveStateDir(env)
 	employeeSkillsDir := filepath.Join(stateDir, "employee_skills", employeeID)
 	if entries, err := agentSkills.LoadEntriesFromDir(employeeSkillsDir, "employee-managed"); err == nil {
@@ -438,7 +426,7 @@ func buildSkillsSnapshotForEmployee(projectRoot string, cfg *config.OpenOctaConf
 		}
 	}
 
-	// 4) manifest.skillIds 过滤：仅保留指定名称的 workspace skills（若 manifest 存在且有 skillIds）。
+	// 3) manifest.skillIds 过滤：仅保留指定名称的 workspace skills（若 manifest 存在且有 skillIds）。
 	if m != nil && len(m.SkillIDs) > 0 {
 		allowed := make(map[string]struct{}, len(m.SkillIDs))
 		for _, id := range m.SkillIDs {
@@ -448,7 +436,7 @@ func buildSkillsSnapshotForEmployee(projectRoot string, cfg *config.OpenOctaConf
 		}
 		if len(allowed) > 0 {
 			for name, e := range merged {
-				if _, ok := allowed[name]; !ok && e.Source != "employee-embedded" && e.Source != "employee-managed" {
+				if _, ok := allowed[name]; !ok && e.Source != "employee-managed" {
 					delete(merged, name)
 				}
 			}
@@ -863,6 +851,24 @@ func ChatSendHandler(opts HandlerOpts) error {
 	// Support attachments (simplified - just check if present)
 	attachmentsRaw, _ := opts.Params["attachments"].([]interface{})
 	hasAttachments := len(attachmentsRaw) > 0
+	if message == "" && hasAttachments {
+		// Ensure transcript has a user-visible record when only attachments are sent.
+		names := make([]string, 0, len(attachmentsRaw))
+		for _, raw := range attachmentsRaw {
+			obj, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if fn, ok := obj["filename"].(string); ok && strings.TrimSpace(fn) != "" {
+				names = append(names, strings.TrimSpace(fn))
+			}
+		}
+		if len(names) > 0 {
+			message = "[附件] " + strings.Join(names, ", ")
+		} else {
+			message = "[附件]"
+		}
+	}
 
 	if message == "" && !hasAttachments {
 		opts.Respond(false, nil, &protocol.ErrorShape{
@@ -1016,10 +1022,21 @@ func ChatSendHandler(opts HandlerOpts) error {
 			var modelFactory api.ModelFactory
 			if cfg := loadConfigFromContext(ctxForBroadcast); cfg != nil {
 				agentID := agent.ResolveSessionAgentID(sessionKey)
-				factory, factoryErr := agent.CreateModelFactoryFromConfig(cfg, agentID)
+				modelRefOverride, _ := opts.Params["modelRef"].(string)
+				modelRefOverride = strings.TrimSpace(modelRefOverride)
+				var factory api.ModelFactory
+				var factoryErr error
+				if modelRefOverride != "" {
+					factory, factoryErr = agent.CreateModelFactoryForModelRef(cfg, modelRefOverride)
+				} else {
+					factory, factoryErr = agent.CreateModelFactoryFromConfig(cfg, agentID)
+				}
 				if factoryErr != nil {
 					chatLog.Warn("failed to create model factory from config, using default agentID=%s error=%v", agentID, factoryErr)
-					modelFactory = runtime.DefaultModelFactory()
+					errMsg := fmt.Sprintf("无法创建运行时: %s", factoryErr)
+					appendErrorToTranscript(transcriptPath, errMsg, runId, sessionKey, ctxForBroadcast)
+					return
+					//modelFactory = runtime.DefaultModelFactory()
 				} else {
 					modelFactory = factory
 				}
@@ -1160,6 +1177,9 @@ func ChatSendHandler(opts HandlerOpts) error {
 						"role":      "assistant",
 						"content":   []map[string]interface{}{{"type": "text", "text": output}},
 						"timestamp": time.Now().UnixMilli(),
+					}
+					if opts != nil && opts.DurationMs != nil {
+						messageBody["durationMs"] = *opts.DurationMs
 					}
 					broadcastChatFinal(ctxForBroadcast, runId, sessionKey, messageBody, deliverForGoroutine)
 					if cronSession {

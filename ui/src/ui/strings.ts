@@ -89,6 +89,7 @@ type Strings = {
   overviewGatewayAccess: string;
   overviewGatewayAccessSub: string;
   overviewWebSocketUrl: string;
+  overviewGatewayHost: string;
   overviewGatewayToken: string;
   overviewPassword: string;
   overviewDefaultSessionKey: string;
@@ -176,6 +177,7 @@ type Strings = {
   llmTraceFile: string;
   llmTraceFileSize: string;
   llmTraceView: string;
+  llmTraceBack: string;
   llmTraceDownload: string;
   llmTraceNoEntries: string;
   sandboxEnabled: string;
@@ -1015,6 +1017,7 @@ const EN: Strings = {
   overviewGatewayAccess: "Gateway Access",
   overviewGatewayAccessSub: "Where the dashboard connects and how it authenticates.",
   overviewWebSocketUrl: "WebSocket URL",
+  overviewGatewayHost: "Backend Address (IP:Port)",
   overviewGatewayToken: "Gateway Token",
   overviewPassword: "Password (not stored)",
   overviewDefaultSessionKey: "Default Session Key",
@@ -1101,6 +1104,7 @@ const EN: Strings = {
   llmTraceFile: "File",
   llmTraceFileSize: "Size",
   llmTraceView: "View",
+  llmTraceBack: "Back",
   llmTraceDownload: "Download",
   llmTraceNoEntries: "No trace entries.",
   sandboxEnabled: "Enabled",
@@ -1950,6 +1954,7 @@ const ZH: Strings = {
   overviewGatewayAccess: "网关访问",
   overviewGatewayAccessSub: "控制台连接地址与认证方式。",
   overviewWebSocketUrl: "WebSocket 地址",
+  overviewGatewayHost: "后端地址 (IP:端口)",
   overviewGatewayToken: "网关令牌",
   overviewPassword: "密码（不保存）",
   overviewDefaultSessionKey: "默认会话 Key",
@@ -1994,7 +1999,7 @@ const ZH: Strings = {
   commonYes: "是",
   commonNo: "否",
   channelsConfigure: "配置",
-  mcpAddServer: "添加 MCP 服务器",
+  mcpAddServer: "新增",
   mcpServerName: "服务器名称",
   mcpNoServers: "暂无 MCP 服务器配置。",
   mcpEnabled: "已启用",
@@ -2036,6 +2041,7 @@ const ZH: Strings = {
   llmTraceFile: "文件",
   llmTraceFileSize: "大小",
   llmTraceView: "查看",
+  llmTraceBack: "返回",
   llmTraceDownload: "下载",
   llmTraceNoEntries: "暂无 trace 记录。",
   sandboxEnabled: "已开启",
@@ -2795,7 +2801,7 @@ const ZH: Strings = {
   envShellEnvSection: "Shell 环境 (env.shellEnv)",
   envVarsKey: "Key",
   envVarsValue: "Value",
-  envVarsAdd: "添加",
+  envVarsAdd: "新增",
   envVarsDelete: "删除",
   envVarsSave: "保存",
   envVarsEmpty: "暂无环境变量，点击添加创建。",

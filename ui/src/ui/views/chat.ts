@@ -25,6 +25,10 @@ export type ChatProps = {
   onSessionKeyChange: (next: string) => void;
   thinkingLevel: string | null;
   showThinking: boolean;
+  modelRef?: string | null;
+  defaultModelRef?: string | null;
+  modelOptions?: Array<{ value: string; label: string }>;
+  onModelRefChange?: (next: string | null) => void;
   loading: boolean;
   sending: boolean;
   canAbort?: boolean;
@@ -72,6 +76,32 @@ export type ChatProps = {
 
 const COMPACTION_TOAST_DURATION_MS = 5000;
 
+function formatDurationShort(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)}s`;
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.round((ms % 60000) / 1000);
+  return `${mins}m${secs.toString().padStart(2, "0")}s`;
+}
+
+function formatBytes(bytes?: number) {
+  if (bytes == null || !Number.isFinite(bytes)) {
+    return "-";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes / 1024;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(size < 10 ? 1 : 0)} ${units[unitIndex]}`;
+}
+
 function adjustTextareaHeight(el: HTMLTextAreaElement) {
   el.style.height = "auto";
   el.style.height = `${el.scrollHeight}px`;
@@ -110,6 +140,44 @@ function generateAttachmentId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function inferAttachmentKind(mimeType: string): "image" | "file" {
+  return mimeType.startsWith("image/") ? "image" : "file";
+}
+
+function handleFilePick(e: Event, props: ChatProps) {
+  const input = e.target as HTMLInputElement | null;
+  const files = input?.files ? Array.from(input.files) : [];
+  if (!files.length || !props.onAttachmentsChange) {
+    return;
+  }
+  const current = props.attachments ?? [];
+
+  const loadFile = (file: File): Promise<ChatAttachment> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        const dataUrl = reader.result as string;
+        resolve({
+          id: generateAttachmentId(),
+          dataUrl,
+          mimeType: file.type || "application/octet-stream",
+          filename: file.name,
+          sizeBytes: file.size,
+          kind: inferAttachmentKind(file.type || ""),
+        });
+      });
+      reader.readAsDataURL(file);
+    });
+
+  void Promise.all(files.map(loadFile)).then((newAttachments) => {
+    props.onAttachmentsChange?.([...current, ...newAttachments]);
+  });
+
+  if (input) {
+    input.value = "";
+  }
+}
+
 function handlePaste(e: ClipboardEvent, props: ChatProps) {
   const items = e.clipboardData?.items;
   if (!items || !props.onAttachmentsChange) {
@@ -143,6 +211,9 @@ function handlePaste(e: ClipboardEvent, props: ChatProps) {
         id: generateAttachmentId(),
         dataUrl,
         mimeType: file.type,
+        filename: file.name,
+        sizeBytes: file.size,
+        kind: "image",
       };
       const current = props.attachments ?? [];
       props.onAttachmentsChange?.([...current, newAttachment]);
@@ -162,11 +233,24 @@ function renderAttachmentPreview(props: ChatProps) {
       ${attachments.map(
         (att) => html`
           <div class="chat-attachment">
-            <img
-              src=${att.dataUrl}
-              alt="Attachment preview"
-              class="chat-attachment__img"
-            />
+            ${
+              (att.kind ?? inferAttachmentKind(att.mimeType)) === "image"
+                ? html`
+                    <img
+                      src=${att.dataUrl}
+                      alt=${att.filename || "Attachment preview"}
+                      class="chat-attachment__img"
+                    />
+                  `
+                : html`
+                    <div class="chat-attachment__file">
+                      <div class="mono">${att.filename || "file"}</div>
+                      <div class="muted" style="font-size: 12px;">
+                        ${att.mimeType}${att.sizeBytes ? ` · ${formatBytes(att.sizeBytes)}` : ""}
+                      </div>
+                    </div>
+                  `
+            }
             <button
               class="chat-attachment__remove"
               type="button"
@@ -200,12 +284,22 @@ export function renderChat(props: ChatProps) {
   const hasAttachments = (props.attachments?.length ?? 0) > 0;
   const composePlaceholder = props.connected
     ? hasAttachments
-      ? "Add a message or paste more images..."
-      : "Message (↩ to send, Shift+↩ for line breaks, paste images)"
+      ? "添加消息（也可继续粘贴图片）…"
+      : "输入消息（回车发送，Shift+回车换行，可粘贴图片）"
     : "Connect to the gateway to start chatting…";
 
   const splitRatio = props.splitRatio ?? 0.6;
   const sidebarOpen = Boolean(props.sidebarOpen && props.onCloseSidebar);
+  const isEmptyThread =
+    !props.loading &&
+    (Array.isArray(props.messages) ? props.messages.length === 0 : true) &&
+    !props.stream;
+
+  const quickPrompts = [
+    "你能告诉我你有哪些技能吗？",
+    "帮我生成一份最近 15 分钟 MySQL 告警分析报告",
+    "帮我梳理一个排查思路，并给出优先级",
+  ];
   const thread = html`
     <div
       class="chat-thread"
@@ -249,6 +343,33 @@ export function renderChat(props: ChatProps) {
           return nothing;
         },
       )}
+      ${
+        isEmptyThread
+          ? html`
+              <div class="chat-empty">
+                <div class="chat-empty__title">您好，有什么可以帮助您？</div>
+                <div class="chat-empty__sub muted">从下面选一个快速开始，或直接输入你的问题。</div>
+                <div class="chat-empty__prompts">
+                  ${quickPrompts.map(
+                    (p) => html`
+                      <button
+                        class="btn chat-empty__prompt"
+                        type="button"
+                        ?disabled=${!props.connected}
+                        @click=${() => {
+                          props.onDraftChange(p);
+                          props.onSend();
+                        }}
+                      >
+                        ${icons.zap} ${p}
+                      </button>
+                    `,
+                  )}
+                </div>
+              </div>
+            `
+          : nothing
+      }
     </div>
   `;
 
@@ -359,55 +480,107 @@ export function renderChat(props: ChatProps) {
 
       <div class="chat-compose">
         ${renderAttachmentPreview(props)}
-        <div class="chat-compose__row">
+        <div class="chat-compose__inner">
           <label class="field chat-compose__field">
             <span>Message</span>
             <textarea
-              ${ref((el) => el && adjustTextareaHeight(el as HTMLTextAreaElement))}
-              .value=${props.draft}
-              ?disabled=${!props.connected}
-              @keydown=${(e: KeyboardEvent) => {
-                if (e.key !== "Enter") {
-                  return;
-                }
-                if (e.isComposing || e.keyCode === 229) {
-                  return;
-                }
-                if (e.shiftKey) {
-                  return;
-                } // Allow Shift+Enter for line breaks
-                if (!props.connected) {
-                  return;
-                }
-                e.preventDefault();
-                if (canCompose) {
-                  props.onSend();
-                }
+            ${ref((el) => el && adjustTextareaHeight(el as HTMLTextAreaElement))}
+            .value=${props.draft}
+            ?disabled=${!props.connected}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key !== "Enter") {
+                return;
+              }
+              if (e.isComposing || e.keyCode === 229) {
+                return;
+              }
+              if (e.shiftKey) {
+                return;
+              } // Allow Shift+Enter for line breaks
+              if (!props.connected) {
+                return;
+              }
+              e.preventDefault();
+              if (canCompose) {
+                props.onSend();
+              }
+            }}
+            @input=${(e: Event) => {
+              const target = e.target as HTMLTextAreaElement;
+              adjustTextareaHeight(target);
+              props.onDraftChange(target.value);
+            }}
+            @paste=${(e: ClipboardEvent) => handlePaste(e, props)}
+            placeholder=${composePlaceholder}
+          ></textarea>
+        </label>
+          <div class="chat-compose__row">
+          <div class="chat-compose__meta">
+            <button
+              class="btn btn--icon chat-compose__add-file"
+              type="button"
+              aria-label="添加文件"
+              title="添加文件"
+              ?disabled=${!props.connected || !props.onAttachmentsChange}
+              @click=${() => {
+                const input = document.getElementById("chat-file-input") as HTMLInputElement | null;
+                input?.click();
               }}
-              @input=${(e: Event) => {
-                const target = e.target as HTMLTextAreaElement;
-                adjustTextareaHeight(target);
-                props.onDraftChange(target.value);
-              }}
-              @paste=${(e: ClipboardEvent) => handlePaste(e, props)}
-              placeholder=${composePlaceholder}
-            ></textarea>
-          </label>
+            >
+              ${icons.plus}
+            </button>
+            <input
+              id="chat-file-input"
+              type="file"
+              multiple
+              accept="image/*,*/*"
+              style="display:none"
+              @change=${(e: Event) => handleFilePick(e, props)}
+            />
+            ${
+              props.onModelRefChange
+                ? html`
+                    <label class="field chat-compose__model-select">
+                      <select
+                        aria-label="大模型"
+                        .value=${props.modelRef ?? props.defaultModelRef ?? ""}
+                        ?disabled=${!props.connected}
+                        @change=${(e: Event) => {
+                          const value = (e.target as HTMLSelectElement).value.trim();
+                          const defaultRef = props.defaultModelRef ?? "";
+                          props.onModelRefChange?.(
+                            value === "" || value === defaultRef ? null : value,
+                          );
+                        }}
+                      >
+                        ${(props.modelOptions ?? [{ value: "", label: "默认" }]).map(
+                          (opt) => html`<option value=${opt.value}>${opt.label}</option>`,
+                        )}
+                      </select>
+                    </label>
+                  `
+                : nothing
+            }
+          </div>
           <div class="chat-compose__actions">
             <button
-              class="btn"
+              class="btn chat-compose__secondary"
               ?disabled=${!props.connected || (!canAbort && props.sending)}
               @click=${canAbort ? props.onAbort : props.onNewSession}
             >
-              ${canAbort ? "Stop" : "New session"}
+              ${canAbort ? "停止" : "新会话"}
             </button>
             <button
-              class="btn primary"
+              class="btn chat-compose__send"
+              type="button"
+              aria-label="发送"
+              title="发送 (Enter)"
               ?disabled=${!props.connected}
               @click=${props.onSend}
             >
-              ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd">↵</kbd>
+              ${isBusy ? icons.loader2 : icons.send}
             </button>
+          </div>
           </div>
         </div>
       </div>

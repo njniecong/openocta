@@ -17,6 +17,38 @@ type ImageBlock = {
   alt?: string;
 };
 
+function extractDurationMs(message: unknown): number | null {
+  const m = message as Record<string, unknown>;
+  const candidates = [
+    m.durationMs,
+    m.elapsedMs,
+    m.latencyMs,
+    m.thinkingMs,
+    (m.metrics as Record<string, unknown> | undefined)?.durationMs,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "number" && Number.isFinite(c) && c > 0) {
+      return c;
+    }
+    if (typeof c === "string") {
+      const n = Number(c);
+      if (Number.isFinite(n) && n > 0) {
+        return n;
+      }
+    }
+  }
+  return null;
+}
+
+function formatDurationShort(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)}s`;
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.round((ms % 60000) / 1000);
+  return `${mins}m${secs.toString().padStart(2, "0")}s`;
+}
+
 function extractImages(message: unknown): ImageBlock[] {
   const m = message as Record<string, unknown>;
   const content = m.content;
@@ -126,6 +158,11 @@ export function renderMessageGroup(
     hour: "numeric",
     minute: "2-digit",
   });
+  const durationMs =
+    normalizedRole === "assistant"
+      ? extractDurationMs(group.messages[group.messages.length - 1]?.message)
+      : null;
+  const durationLabel = durationMs ? formatDurationShort(durationMs) : "";
 
   return html`
     <div class="chat-group ${roleClass}">
@@ -147,6 +184,9 @@ export function renderMessageGroup(
         <div class="chat-group-footer">
           <span class="chat-sender-name">${who}</span>
           <span class="chat-group-timestamp">${timestamp}</span>
+          ${durationLabel
+            ? html`<span class="chat-group-duration muted">思考 ${durationLabel}</span>`
+            : nothing}
         </div>
       </div>
     </div>
@@ -239,6 +279,8 @@ function renderGroupedMessage(
     opts.showReasoning && role === "assistant" ? extractThinkingCached(message) : null;
   const markdownBase = extractedText?.trim() ? extractedText : null;
   const reasoningMarkdown = extractedThinking ? formatReasoningMarkdown(extractedThinking) : null;
+  const durationMs = role === "assistant" ? extractDurationMs(message) : null;
+  const durationLabel = durationMs ? formatDurationShort(durationMs) : "";
   const markdown = markdownBase;
   const canCopyMarkdown = role === "assistant" && Boolean(markdown?.trim());
 
@@ -265,9 +307,16 @@ function renderGroupedMessage(
       ${renderMessageImages(images)}
       ${
         reasoningMarkdown
-          ? html`<div class="chat-thinking">${unsafeHTML(
-              toSanitizedMarkdownHtml(reasoningMarkdown),
-            )}</div>`
+          ? html`
+              <details class="chat-thinking">
+                <summary class="chat-thinking__summary">
+                  思考过程${durationLabel ? html`<span class="muted"> · ${durationLabel}</span>` : nothing}
+                </summary>
+                <div class="chat-thinking__content">
+                  ${unsafeHTML(toSanitizedMarkdownHtml(reasoningMarkdown))}
+                </div>
+              </details>
+            `
           : nothing
       }
       ${

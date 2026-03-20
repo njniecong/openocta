@@ -4,6 +4,7 @@ package ws
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -84,7 +85,7 @@ func NewHub(version string, h *handlers.Registry, ctx *handlers.Context) *Hub {
 		"skills.status", "skills.getDoc", "skills.bins", "skills.install", "skills.update", "skills.delete",
 		"files.read",
 		"update.run", "voicewake.get", "voicewake.set",
-		"sessions.list", "sessions.preview", "sessions.patch", "sessions.reset", "sessions.delete", "sessions.compact", "sessions.usage", "sessions.usage.timeseries", "sessions.usage.logs",
+		"sessions.list", "sessions.create", "sessions.preview", "sessions.patch", "sessions.reset", "sessions.delete", "sessions.compact", "sessions.usage", "sessions.usage.timeseries", "sessions.usage.logs",
 		"trace.list", "trace.content",
 		"approvals.list", "approvals.approve", "approvals.deny", "approvals.whitelistSession",
 		"last-heartbeat", "set-heartbeats", "wake",
@@ -385,10 +386,31 @@ func (c *Client) handleConnect(id string, params interface{}) {
 		c.sendError(id, protocol.ErrCodeInvalidRequest, "connect params missing required client fields")
 		return
 	}
+
+	// Gateway token validation: when expected token is configured, require valid auth
+	expectedToken := ""
+	if c.Context != nil && c.Context.LoadConfigSnapshot != nil {
+		expectedToken = handlers.GetExpectedGatewayToken(c.Context.LoadConfigSnapshot)
+	}
+	if expectedToken != "" {
+		gotToken := ""
+		if cp.Auth != nil {
+			gotToken = strings.TrimSpace(cp.Auth.Token)
+			if gotToken == "" {
+				gotToken = strings.TrimSpace(cp.Auth.Password)
+			}
+		}
+		if gotToken == "" || gotToken != expectedToken {
+			authMsg := "认证失败：网关令牌无效或未提供，请在 Overview 中配置正确的 Gateway Token"
+			c.sendError(id, "invalid_gateway_token", authMsg)
+			// Do not write/close here: writePump owns Conn writes. Client will close after receiving the error.
+			return
+		}
+	}
+
 	minP, maxP := cp.MinProtocol, cp.MaxProtocol
 	if maxP < protocol.PROTOCOL_VERSION || minP > protocol.PROTOCOL_VERSION {
 		c.sendError(id, protocol.ErrCodeInvalidRequest, "protocol mismatch")
-		c.Conn.Close()
 		return
 	}
 	// Accept role; default operator

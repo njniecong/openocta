@@ -11,14 +11,10 @@ import (
 	"github.com/openocta/openocta/pkg/paths"
 )
 
-// ListSummaries 返回所有数字员工的概要信息（内置 + 用户自建）。
+// ListSummaries 返回所有数字员工的概要信息。
 // env 通常为 os.Getenv。
 func ListSummaries(env func(string) string) ([]Summary, error) {
 	var out []Summary
-
-	// 先加载内置员工（Builtin=true），保证列表中内置排在前面；
-	// 若用户在 ~/.openocta/employees 下创建了同 ID 的自建员工，则会覆盖内置条目的展示与行为。
-	builtinIndexByID := make(map[string]int)
 
 	root := ResolveEmployeesDir(env)
 	if fi, err := os.Stat(root); err == nil && fi.IsDir() {
@@ -49,6 +45,10 @@ func ListSummaries(env func(string) string) ([]Summary, error) {
 					}
 				}
 				sort.Strings(mcpKeys)
+				typeVal := strings.TrimSpace(m.Type)
+				if typeVal == "" {
+					typeVal = "其它"
+				}
 				s := Summary{
 					ID:            m.ID,
 					Name:          coalesce(m.Name, m.ID),
@@ -60,10 +60,8 @@ func ListSummaries(env func(string) string) ([]Summary, error) {
 					SkillIDs:      append([]string(nil), m.SkillIDs...),
 					SkillNames:    skillNames,
 					McpServerKeys: mcpKeys,
-				}
-				if idx, ok := builtinIndexByID[s.ID]; ok {
-					out[idx] = s
-					continue
+					Type:          typeVal,
+					From:          m.From,
 				}
 				out = append(out, s)
 			}
@@ -74,8 +72,7 @@ func ListSummaries(env func(string) string) ([]Summary, error) {
 	return out, nil
 }
 
-// LoadManifest 从 ~/.openocta/employees/<id>/manifest.json 加载指定 ID 的数字员工 manifest；
-// 若不存在则回退到 embed/employees 中的内置 manifest。
+// LoadManifest 从 ~/.openocta/employees/<id>/manifest.json 加载指定 ID 的数字员工 manifest。
 func LoadManifest(id string, env func(string) string) (*Manifest, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {

@@ -1,5 +1,5 @@
 import type { AppViewState } from "../app-view-state.ts";
-import { gatewayHttpBase } from "./skills.ts";
+import { gatewayHttpBase } from "../gateway-url.ts";
 
 type EmployeesListResult = {
   employees: Array<{
@@ -323,15 +323,25 @@ export async function deleteEmployeeSkill(
   if (!url) {
     return false;
   }
+  const headers: Record<string, string> = {};
+  const token = (state as { settings?: { token?: string } }).settings?.token?.trim();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
     const u = new URL(`${url.replace(/\/$/, "")}/api/employee-skills/delete`);
     u.searchParams.set("employeeId", employeeId.trim());
     u.searchParams.set("name", name.trim());
-    const res = await fetch(u.toString(), { method: "DELETE" });
+    const res = await fetch(u.toString(), { method: "DELETE", headers });
+    if (res.status === 401) {
+      throw new Error("认证失败：网关令牌无效或未提供，请在 Overview 中配置正确的 Gateway Token");
+    }
     const data = (await res.json()) as { ok?: boolean };
     return res.ok && data.ok === true;
-  } catch {
-    return false;
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (raw === "Failed to fetch") {
+      throw new Error("网络请求失败，请检查网络连接");
+    }
+    throw err;
   }
 }
 
@@ -361,25 +371,28 @@ export async function uploadEmployeeSkill(
     form.append("name", name.trim());
   }
   form.append("file", file);
+  const headers: Record<string, string> = {};
+  const token = (state as { settings?: { token?: string } }).settings?.token?.trim();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
     const res = await fetch(`${url.replace(/\/$/, "")}/api/employee-skills/upload`, {
       method: "POST",
+      headers,
       body: form,
     });
     const data = (await res.json()) as { ok?: boolean; error?: string; template?: string };
     if (!res.ok || data.ok === false) {
-      return {
-        ok: false,
-        error: data.error ?? `上传失败 (${res.status})`,
-        template: data.template,
-      };
+      const errMsg =
+        res.status === 401
+          ? "认证失败：网关令牌无效或未提供，请在 Overview 中配置正确的 Gateway Token"
+          : (data.error ?? `上传失败 (${res.status})`);
+      return { ok: false, error: errMsg, template: data.template };
     }
     return { ok: true };
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    const raw = err instanceof Error ? err.message : String(err);
+    const msg = raw === "Failed to fetch" ? "网络请求失败，请检查网络连接" : raw;
+    return { ok: false, error: msg };
   }
 }
 

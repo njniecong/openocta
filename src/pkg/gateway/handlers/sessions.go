@@ -12,9 +12,26 @@ import (
 	"github.com/openocta/openocta/pkg/agent/tools"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
+	"github.com/openocta/openocta/pkg/logging"
 	"github.com/openocta/openocta/pkg/paths"
 	"github.com/openocta/openocta/pkg/session"
 )
+
+var sessionsLog = logging.Sub("sessions")
+
+// SessionsCreateParams matches SessionsCreateParams from TypeScript.
+type SessionsCreateParams struct {
+	Label *string `json:"label,omitempty"`
+}
+
+// SessionsCreateResult matches SessionsCreateResult from TypeScript.
+type SessionsCreateResult struct {
+	OK        bool                   `json:"ok"`
+	Key       string                 `json:"key"`
+	Path      string                 `json:"path"`
+	SessionID string                 `json:"sessionId"`
+	Entry     map[string]interface{} `json:"entry"`
+}
 
 // SessionsListParams matches SessionsListParams from TypeScript.
 type SessionsListParams struct {
@@ -179,6 +196,78 @@ type SessionsCompactResult struct {
 	Archived  *string `json:"archived,omitempty"`
 	Kept      *int    `json:"kept,omitempty"`
 	Reason    *string `json:"reason,omitempty"`
+}
+
+// SessionsCreateHandler handles "sessions.create" - creates a new custom session with default label "自定义会话N".
+func SessionsCreateHandler(opts HandlerOpts) error {
+	params, _ := parseSessionsCreateParams(opts.Params)
+	cfg := loadConfigFromContext(opts.Context)
+	if cfg == nil {
+		cfg = &config.OpenOctaConfig{}
+	}
+	env := func(k string) string { return os.Getenv(k) }
+	target := resolveGatewaySessionStoreTarget(cfg, "custom:create", env)
+	storePath := target.storePath
+
+	var createdKey string
+	var next session.SessionEntry
+	_, err := updateSessionStore(storePath, func(store session.SessionStore) (session.SessionEntry, error) {
+		// Count existing custom sessions for default label
+		customCount := 0
+		for k := range store {
+			if strings.HasPrefix(strings.ToLower(k), "custom:") {
+				customCount++
+			}
+		}
+		newSessionID := uuid.New().String()
+		createdKey = "custom:" + newSessionID
+		label := fmt.Sprintf("自定义会话%d", customCount+1)
+		if params != nil && params.Label != nil && strings.TrimSpace(*params.Label) != "" {
+			label = strings.TrimSpace(*params.Label)
+		}
+		now := time.Now().UnixMilli()
+		next = session.SessionEntry{
+			SessionID:   newSessionID,
+			UpdatedAt:   now,
+			SessionFile: newSessionID + ".jsonl",
+			Label:       label,
+		}
+		store[createdKey] = next
+		return next, nil
+	})
+	if err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: "sessions.create: " + err.Error(),
+		}, nil)
+		return nil
+	}
+
+	// Create transcript file
+	transcriptPath := session.ResolveSessionFilePath(next.SessionID, nil, env)
+	if err := session.EnsureTranscriptFile(transcriptPath, next.SessionID); err != nil {
+		sessionsLog.Warn("sessions.create: failed to create transcript path=%s sessionID=%s error=%v", transcriptPath, next.SessionID, err)
+	}
+
+	opts.Respond(true, &SessionsCreateResult{
+		OK:        true,
+		Key:       createdKey,
+		Path:      storePath,
+		SessionID: next.SessionID,
+		Entry:     sessionEntryToMap(next),
+	}, nil, nil)
+	return nil
+}
+
+func parseSessionsCreateParams(params map[string]interface{}) (*SessionsCreateParams, error) {
+	p := &SessionsCreateParams{}
+	if params == nil {
+		return p, nil
+	}
+	if label, ok := params["label"].(string); ok && label != "" {
+		p.Label = &label
+	}
+	return p, nil
 }
 
 // SessionsListHandler handles "sessions.list".
@@ -810,6 +899,10 @@ func resolveSessionStoreKey(cfg *config.OpenOctaConfig, sessionKey string) strin
 	if raw == "global" || raw == "unknown" {
 		return raw
 	}
+	// Custom sessions: custom:uuid format, stored in main store
+	if strings.HasPrefix(strings.ToLower(raw), "custom:") {
+		return raw
+	}
 	// Parse agent:agentId:sessionId format
 	parts := strings.SplitN(raw, ":", 3)
 	if len(parts) >= 3 && strings.ToLower(parts[0]) == "agent" {
@@ -829,6 +922,10 @@ func resolveSessionStoreKey(cfg *config.OpenOctaConfig, sessionKey string) strin
 // resolveSessionStoreAgentID resolves agent ID from canonical key.
 func resolveSessionStoreAgentID(cfg *config.OpenOctaConfig, canonicalKey string) string {
 	if canonicalKey == "global" || canonicalKey == "unknown" {
+		return "main"
+	}
+	// Custom sessions: stored in main agent's store
+	if strings.HasPrefix(strings.ToLower(canonicalKey), "custom:") {
 		return "main"
 	}
 	parts := strings.SplitN(canonicalKey, ":", 3)
@@ -1370,6 +1467,10 @@ func canonicalizeSessionKeyForAgent(agentID string, key string) string {
 		return key
 	}
 	if strings.HasPrefix(key, "agent:") {
+		return key
+	}
+	// Custom sessions: keep key as-is (custom:uuid)
+	if strings.HasPrefix(strings.ToLower(key), "custom:") {
 		return key
 	}
 	return "agent:" + normalizeAgentID(agentID) + ":" + key

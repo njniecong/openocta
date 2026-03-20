@@ -3,17 +3,25 @@ import { t } from "./strings.js";
 
 export function getTabGroups() {
   return [
+    // legacy sidebar groups (kept for compatibility; the new shell renders its own top tabs)
     { label: t("tabGroupChat"), tabs: ["chat", "digitalEmployee"] as const },
-    {
-      label: t("tabGroupControl"),
-      tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"] as const,
-    },
-    { label: t("tabGroupAgent"), tabs: ["models", "skills", "mcp", "llmTrace", "sandbox"] as const },
-    { label: t("tabGroupSettings"), tabs: ["config", "envVars", "logs"] as const },
+    { label: t("tabGroupControl"), tabs: ["overview", "cron", "cronHistory"] as const },
+    { label: t("tabGroupAgent"), tabs: ["skills", "mcp"] as const },
+    { label: t("tabGroupSettings"), tabs: ["config"] as const },
   ];
 }
 
 export type Tab =
+  // new top-level product tabs
+  | "message"
+  | "scheduledTasks"
+  | "cronHistory"
+  | "employeeMarket"
+  | "skillLibrary"
+  | "toolLibrary"
+  | "tutorials"
+  | "aboutUs"
+  | "community"
   | "agents"
   | "overview"
   | "channels"
@@ -36,6 +44,15 @@ export type Tab =
   | "sandbox";
 
 const TAB_PATHS: Record<Tab, string> = {
+  message: "/message",
+  scheduledTasks: "/scheduled-tasks",
+  cronHistory: "/cron-history",
+  employeeMarket: "/employee-market",
+  skillLibrary: "/skill-library",
+  toolLibrary: "/tool-library",
+  tutorials: "/tutorials",
+  aboutUs: "/about-us",
+  community: "/community",
   agents: "/agents",
   overview: "/overview",
   channels: "/channels",
@@ -112,7 +129,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
     normalized = "/";
   }
   if (normalized === "/") {
-    return "chat";
+    return "message";
   }
   return PATH_TO_TAB.get(normalized) ?? null;
 }
@@ -141,6 +158,24 @@ export function inferBasePathFromPathname(pathname: string): string {
 
 export function iconForTab(tab: Tab): IconName {
   switch (tab) {
+    case "message":
+      return "messageSquare";
+    case "scheduledTasks":
+      return "alarmClock";
+    case "cronHistory":
+      return "scrollText";
+    case "employeeMarket":
+      return "users";
+    case "skillLibrary":
+      return "zap";
+    case "toolLibrary":
+      return "wrench";
+    case "tutorials":
+      return "book";
+    case "aboutUs":
+      return "info";
+    case "community":
+      return "globe";
     case "agents":
       return "folder";
     case "chat":
@@ -188,6 +223,24 @@ export function iconForTab(tab: Tab): IconName {
 
 export function titleForTab(tab: Tab) {
   switch (tab) {
+    case "message":
+      return "消息";
+    case "scheduledTasks":
+      return "定时任务";
+    case "cronHistory":
+      return "运行历史";
+    case "employeeMarket":
+      return "员工市场";
+    case "skillLibrary":
+      return "技能库";
+    case "toolLibrary":
+      return "工具库";
+    case "tutorials":
+      return "教程";
+    case "aboutUs":
+      return "关于我们";
+    case "community":
+      return "社区";
     case "agents":
       return t("navTitleAgents");
     case "overview":
@@ -235,6 +288,24 @@ export function titleForTab(tab: Tab) {
 
 export function subtitleForTab(tab: Tab) {
   switch (tab) {
+    case "message":
+      return "";
+    case "scheduledTasks":
+      return "";
+    case "cronHistory":
+      return "";
+    case "employeeMarket":
+      return "";
+    case "skillLibrary":
+      return "";
+    case "toolLibrary":
+      return "";
+    case "tutorials":
+      return "";
+    case "aboutUs":
+      return "";
+    case "community":
+      return "";
     case "agents":
       return t("subtitleAgents");
     case "overview":

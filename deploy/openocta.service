@@ -15,6 +15,8 @@ Type=simple
 ExecStart=/usr/bin/openocta gateway run --port 18900
 Restart=on-failure
 RestartSec=5
+# 明确运行形态：Linux 下以 service 形式对外提供访问
+Environment=OPENOCTA_RUN_MODE=service
 # 状态目录（可按需覆盖）
 Environment=OPENOCTA_STATE_DIR=/var/lib/openocta
 # 建议以专用用户运行（按需取消注释并创建用户）

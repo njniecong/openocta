@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/openocta/openocta/embed"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/paths"
 )
@@ -67,13 +66,12 @@ type LoadOptions struct {
 
 // LoadWorkspaceEntries loads skill entries from a workspace directory.
 // Skills are loaded from multiple locations with the following precedence (lowest to highest):
-// 1. Embedded skills (built into binary via embed) - lowest priority
-// 2. Extra directories (from config.skills.load.extraDirs)
-// 3. Bundled skills (built-in: default ./skills or OPENCLAW_BUNDLED_SKILLS_DIR)
-// 4. Managed skills (~/.openclaw/skills)
-// 5. Workspace skills (<workspace>/skills) - highest priority
+// 1. Extra directories (from config.skills.load.extraDirs)
+// 2. Bundled skills (built-in: default ./skills or OPENCLAW_BUNDLED_SKILLS_DIR)
+// 3. Managed skills (~/.openclaw/skills)
+// 4. Workspace skills (<workspace>/skills) - highest priority
 //
-// Name conflict resolution: workspace (highest) > managed > bundled > extra > embedded (lowest).
+// Name conflict resolution: workspace (highest) > managed > bundled > extra (lowest).
 func LoadWorkspaceEntries(workspaceDir string, opts *LoadOptions) ([]Entry, error) {
 	env := func(k string) string { return os.Getenv(k) }
 
@@ -108,24 +106,13 @@ func LoadWorkspaceEntries(workspaceDir string, opts *LoadOptions) ([]Entry, erro
 
 	// Load skills from each directory with precedence
 	// Priority order (lowest to highest):
-	// 1. Embedded skills (built into binary) - lowest
-	// 2. Extra directories (from config.skills.load.extraDirs)
-	// 3. Bundled skills (built-in, shipped with install)
-	// 4. Managed skills (~/.openclaw/skills)
-	// 5. Workspace skills (<workspace>/skills) - highest
+	// 1. Extra directories (from config.skills.load.extraDirs)
+	// 2. Bundled skills (built-in, shipped with install)
+	// 3. Managed skills (~/.openclaw/skills)
+	// 4. Workspace skills (<workspace>/skills) - highest
 	merged := make(map[string]Entry)
 
-	// 1. Embedded skills (lowest precedence)
-	if skillsFS, err := embed.SkillsFS(); err == nil {
-		skills, _ := loadSkillsFromFS(skillsFS, ".", "openclaw-embedded")
-		for _, skill := range skills {
-			if skill.Name != "" {
-				merged[skill.Name] = skill
-			}
-		}
-	}
-
-	// 2. Extra directories
+	// 1. Extra directories
 	for _, dir := range extraDirs {
 		skills, _ := loadSkillsFromDir(dir, "openclaw-extra")
 		for _, skill := range skills {
@@ -135,7 +122,7 @@ func LoadWorkspaceEntries(workspaceDir string, opts *LoadOptions) ([]Entry, erro
 		}
 	}
 
-	// 3. Bundled skills (built-in, shipped with install)
+	// 2. Bundled skills (built-in, shipped with install)
 	if bundledSkillsDir != "" {
 		skills, _ := loadSkillsFromDir(bundledSkillsDir, "openclaw-bundled")
 		for _, skill := range skills {
@@ -145,7 +132,7 @@ func LoadWorkspaceEntries(workspaceDir string, opts *LoadOptions) ([]Entry, erro
 		}
 	}
 
-	// 4. Managed skills (~/.openclaw/skills)
+	// 3. Managed skills (~/.openclaw/skills)
 	skills, _ := loadSkillsFromDir(managedSkillsDir, "openclaw-managed")
 	for _, skill := range skills {
 		if skill.Name != "" {
@@ -153,7 +140,7 @@ func LoadWorkspaceEntries(workspaceDir string, opts *LoadOptions) ([]Entry, erro
 		}
 	}
 
-	// 5. Workspace skills (<workspace>/skills) - highest precedence
+	// 4. Workspace skills (<workspace>/skills) - highest precedence
 	skills, _ = loadSkillsFromDir(workspaceSkillsDir, "openclaw-workspace")
 	for _, skill := range skills {
 		if skill.Name != "" {
@@ -262,7 +249,6 @@ func loadSkillsFromFS(fsys fs.FS, basePath string, source string) ([]Entry, erro
 }
 
 // LoadEntriesFromFS 在给定 fs.FS 下，从 basePath 开始递归加载 skills。
-// 主要用于从 embed.SkillsFS / embed.AgentsSkillsFS 这类嵌入式 FS 中按前缀加载。
 func LoadEntriesFromFS(fsys fs.FS, basePath string, source string) ([]Entry, error) {
 	return loadSkillsFromFS(fsys, basePath, source)
 }

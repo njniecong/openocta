@@ -109,6 +109,233 @@ export type EmployeeMcpItem = {
   collapsed: boolean;
 };
 
+/** 数字员工修改弹框的 props，可独立于数字员工页面使用 */
+export type DigitalEmployeeEditModalProps = {
+  editModalOpen: boolean;
+  editId: string;
+  editName: string;
+  editDescription: string;
+  editPrompt: string;
+  editMcpJson: string;
+  editMcpMode: "builder" | "raw";
+  editMcpItems: EmployeeMcpItem[];
+  onEditMcpModeChange: (mode: "builder" | "raw") => void;
+  onEditMcpAddItem: () => void;
+  onEditMcpRemoveItem: (id: string) => void;
+  onEditMcpCollapsedChange: (id: string, collapsed: boolean) => void;
+  onEditMcpKeyChange: (id: string, key: string) => void;
+  onEditMcpEditModeChange: (id: string, mode: "form" | "raw") => void;
+  onEditMcpConnectionTypeChange: (id: string, type: "stdio" | "url" | "service") => void;
+  onEditMcpFormPatch: (id: string, patch: Partial<McpServerEntry>) => void;
+  onEditMcpRawChange: (id: string, json: string) => void;
+  editSkillNames: string[];
+  editSkillFilesToUpload: File[];
+  editSkillsToDelete: string[];
+  editError: string | null;
+  editBusy: boolean;
+  onEditClose: () => void;
+  onEditDescriptionChange: (value: string) => void;
+  onEditPromptChange: (value: string) => void;
+  onEditMcpJsonChange: (value: string) => void;
+  onEditSkillFilesChange: (files: File[]) => void;
+  onEditSkillDelete: (skillName: string) => void;
+  onEditSkillUndoDelete: (skillName: string) => void;
+  onEditSubmit: () => void;
+};
+
+export function renderDigitalEmployeeEditModal(props: DigitalEmployeeEditModalProps) {
+  if (!props.editModalOpen) return nothing;
+  return html`
+    <div class="modal-overlay" @click=${props.onEditClose}>
+      <div class="modal card" @click=${(e: Event) => e.stopPropagation()}>
+        <div class="card-title">修改数字员工</div>
+        <div class="field" style="margin-top: 12px;">
+          <span>名称</span>
+          <input type="text" .value=${props.editName} disabled />
+          <div class="list-sub muted" style="font-size: 11px; margin-top: 4px;">名称不可修改</div>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>描述</span>
+          <textarea
+            rows="2"
+            .value=${props.editDescription}
+            @input=${(e: Event) =>
+              props.onEditDescriptionChange(
+                (e.target as HTMLTextAreaElement).value,
+              )}
+          ></textarea>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>Prompt（可选）</span>
+          <textarea
+            rows="4"
+            .value=${props.editPrompt}
+            @input=${(e: Event) =>
+              props.onEditPromptChange(
+                (e.target as HTMLTextAreaElement).value,
+              )}
+            placeholder="为该数字员工编写系统提示/人设说明。"
+          ></textarea>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>MCP 配置（可选）</span>
+          <div class="row" style="margin-top: 6px; gap: 8px; flex-wrap: wrap;">
+            <button
+              class="btn ${props.editMcpMode === "builder" ? "primary" : ""}"
+              type="button"
+              @click=${() => props.onEditMcpModeChange("builder")}
+            >
+              点选配置
+            </button>
+            <button
+              class="btn ${props.editMcpMode === "raw" ? "primary" : ""}"
+              type="button"
+              @click=${() => props.onEditMcpModeChange("raw")}
+            >
+              原生 JSON
+            </button>
+          </div>
+          ${
+            props.editMcpMode === "raw"
+              ? html`
+                  <textarea
+                    rows="4"
+                    style="margin-top: 8px;"
+                    .value=${props.editMcpJson}
+                    @input=${(e: Event) =>
+                      props.onEditMcpJsonChange(
+                        (e.target as HTMLTextAreaElement).value,
+                      )}
+                    placeholder='{"prometheus":{"service":"prometheus","serviceUrl":"http://localhost:9090"}}'
+                  ></textarea>
+                  <div class="list-sub muted" style="font-size: 11px; margin-top: 4px;">
+                    与主配置 mcp.servers 结构一致，会话时合并（同 key 时员工覆盖）
+                  </div>
+                `
+              : html`
+                  <div class="row" style="margin-top: 8px; justify-content: space-between; align-items: center;">
+                    <div class="muted" style="font-size: 12px;">
+                      可添加多个 MCP；配置完成后可折叠，避免页面过长。
+                    </div>
+                    <button class="btn btn--sm" type="button" @click=${props.onEditMcpAddItem}>
+                      + 添加 MCP
+                    </button>
+                  </div>
+                  <div style="margin-top: 8px; display: grid; gap: 10px;">
+                    ${props.editMcpItems.map((item) =>
+                      renderEmployeeMcpItem(item, {
+                        onRemoveItem: props.onEditMcpRemoveItem,
+                        onCollapsedChange: props.onEditMcpCollapsedChange,
+                        onKeyChange: props.onEditMcpKeyChange,
+                        onEditModeChange: props.onEditMcpEditModeChange,
+                        onConnectionTypeChange: props.onEditMcpConnectionTypeChange,
+                        onFormPatch: props.onEditMcpFormPatch,
+                        onRawChange: props.onEditMcpRawChange,
+                      }),
+                    )}
+                  </div>
+                `
+          }
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>已有技能</span>
+          ${
+            props.editSkillNames.length === 0
+              ? html`<div class="muted" style="font-size: 12px;">暂无技能</div>`
+              : html`
+                  <div class="row" style="flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                    ${props.editSkillNames.map(
+                      (name) =>
+                        html`
+                          <span
+                            class="chip"
+                            style="display: inline-flex; align-items: center; gap: 4px;"
+                          >
+                            ${name}
+                            ${!props.editSkillsToDelete.includes(name)
+                              ? html`
+                                  <button
+                                    type="button"
+                                    class="btn btn--sm"
+                                    style="padding: 2px 6px; font-size: 11px;"
+                                    @click=${() => props.onEditSkillDelete(name)}
+                                  >
+                                    删除
+                                  </button>
+                                `
+                              : html`
+                                  <span class="muted" style="font-size: 11px;"
+                                    >已标记删除</span
+                                  >
+                                  <button
+                                    type="button"
+                                    class="btn btn--sm"
+                                    style="padding: 2px 6px; font-size: 11px;"
+                                    @click=${() => props.onEditSkillUndoDelete(name)}
+                                  >
+                                    撤销
+                                  </button>
+                                `}
+                          </span>
+                        `,
+                    )}
+                  </div>
+                `
+          }
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>新上传技能文件（可多选）</span>
+          <input
+            type="file"
+            accept=".md,.MD,.zip"
+            multiple
+            @change=${(e: Event) => {
+              const input = e.target as HTMLInputElement;
+              const files = input.files ? Array.from(input.files) : [];
+              props.onEditSkillFilesChange(files);
+            }}
+          />
+          ${
+            props.editSkillFilesToUpload.length > 0
+              ? html`
+                  <div class="row" style="flex-wrap: wrap; gap: 4px; margin-top: 8px;">
+                    ${props.editSkillFilesToUpload.map(
+                      (f) =>
+                        html`<span class="chip" style="font-size: 12px;"
+                          >${f.name}</span
+                        >`,
+                    )}
+                  </div>
+                `
+              : nothing
+          }
+        </div>
+        ${
+          props.editError
+            ? html`
+                <div class="callout danger" style="margin-top: 12px;">
+                  ${props.editError}
+                </div>
+              `
+            : nothing
+        }
+        <div class="row" style="margin-top: 16px; justify-content: flex-end; gap: 8px;">
+          <button class="btn" ?disabled=${props.editBusy} @click=${props.onEditClose}>
+            ${t("commonCancel")}
+          </button>
+          <button
+            class="btn primary"
+            ?disabled=${props.editBusy}
+            @click=${props.onEditSubmit}
+          >
+            ${props.editBusy ? t("commonLoading") : "保存"}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 type EmployeeMcpCallbacks = {
   onRemoveItem: (id: string) => void;
   onCollapsedChange: (id: string, collapsed: boolean) => void;
@@ -118,6 +345,202 @@ type EmployeeMcpCallbacks = {
   onFormPatch: (id: string, patch: Partial<McpServerEntry>) => void;
   onRawChange: (id: string, json: string) => void;
 };
+
+export type DigitalEmployeeCreateModalProps = {
+  createModalOpen: boolean;
+  createName: string;
+  createDescription: string;
+  createPrompt: string;
+  createError: string | null;
+  createBusy: boolean;
+  advancedOpen: boolean;
+  createMcpMode: "builder" | "raw";
+  mcpJson: string;
+  mcpItems: EmployeeMcpItem[];
+  skillUploadName: string;
+  skillUploadFiles: File[];
+  skillUploadError: string | null;
+  onMcpJsonChange: (value: string) => void;
+  onMcpModeChange: (mode: "builder" | "raw") => void;
+  onMcpAddItem: () => void;
+  onMcpRemoveItem: (id: string) => void;
+  onMcpCollapsedChange: (id: string, collapsed: boolean) => void;
+  onMcpKeyChange: (id: string, key: string) => void;
+  onMcpEditModeChange: (id: string, mode: "form" | "raw") => void;
+  onMcpConnectionTypeChange: (id: string, type: "stdio" | "url" | "service") => void;
+  onMcpFormPatch: (id: string, patch: Partial<McpServerEntry>) => void;
+  onMcpRawChange: (id: string, json: string) => void;
+  onCreateClose: () => void;
+  onCreateNameChange: (value: string) => void;
+  onCreateDescriptionChange: (value: string) => void;
+  onCreatePromptChange: (value: string) => void;
+  onToggleAdvanced: () => void;
+  onSkillUploadNameChange: (value: string) => void;
+  onSkillUploadFilesChange: (files: File[]) => void;
+  onCreateSubmit: () => void;
+};
+
+export function renderDigitalEmployeeCreateModal(props: DigitalEmployeeCreateModalProps) {
+  if (!props.createModalOpen) return nothing;
+  const employeeIdPreview = deriveEmployeeIdFromName(props.createName?.trim() ?? "");
+  return html`
+    <div class="modal-overlay" @click=${props.onCreateClose}>
+      <div class="modal card" @click=${(e: Event) => e.stopPropagation()}>
+        <div class="card-title">新增数字员工</div>
+        <div class="field" style="margin-top: 12px;">
+          <span>名称</span>
+          <input
+            type="text"
+            .value=${props.createName}
+            @input=${(e: Event) => props.onCreateNameChange((e.target as HTMLInputElement).value)}
+            placeholder="如 SRE 运维专家"
+          />
+          <div class="list-sub muted" style="font-size: 11px; margin-top: 4px;">名称唯一</div>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>描述</span>
+          <textarea
+            rows="2"
+            .value=${props.createDescription}
+            @input=${(e: Event) =>
+              props.onCreateDescriptionChange((e.target as HTMLTextAreaElement).value)}
+          ></textarea>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <span>Prompt（可选）</span>
+          <textarea
+            rows="4"
+            .value=${props.createPrompt}
+            @input=${(e: Event) =>
+              props.onCreatePromptChange((e.target as HTMLTextAreaElement).value)}
+            placeholder="为该数字员工编写系统提示/人设说明。"
+          ></textarea>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <button class="btn secondary" type="button" @click=${props.onToggleAdvanced}>
+            ${props.advancedOpen ? "收起高级配置" : "展开高级配置"}
+          </button>
+        </div>
+        ${props.advancedOpen
+          ? html`
+              <div class="card" style="margin-top: 12px;">
+                <div class="card-title" style="font-size: 13px; margin-bottom: 8px;">高级配置</div>
+                <div class="list-sub muted" style="font-size: 12px; margin-bottom: 8px;">
+                  预估 ID：<code>${employeeIdPreview}</code>（基于名称生成，用于专属技能目录
+                  ~/.openocta/employee_skills/${employeeIdPreview}/...）
+                </div>
+                <div class="field" style="margin-top: 8px;">
+                  <span>MCP 配置（可选）</span>
+                  <div class="row" style="margin-top: 6px; gap: 8px; flex-wrap: wrap;">
+                    <button
+                      class="btn ${props.createMcpMode === "builder" ? "primary" : ""}"
+                      type="button"
+                      @click=${() => props.onMcpModeChange("builder")}
+                    >
+                      点选配置
+                    </button>
+                    <button
+                      class="btn ${props.createMcpMode === "raw" ? "primary" : ""}"
+                      type="button"
+                      @click=${() => props.onMcpModeChange("raw")}
+                    >
+                      原生 JSON
+                    </button>
+                  </div>
+                  ${props.createMcpMode === "raw"
+                    ? html`
+                        <textarea
+                          rows="4"
+                          style="margin-top: 8px;"
+                          .value=${props.mcpJson}
+                          @input=${(e: Event) =>
+                            props.onMcpJsonChange((e.target as HTMLTextAreaElement).value)}
+                          placeholder='{"prometheus":{"service":"prometheus","serviceUrl":"http://localhost:9090"}}'
+                        ></textarea>
+                        <div class="list-sub muted" style="font-size: 11px; margin-top: 4px;">
+                          与主配置 mcp.servers 结构一致，会话时合并（同 key 时员工覆盖）
+                        </div>
+                      `
+                    : html`
+                        <div class="row" style="margin-top: 8px; justify-content: space-between; align-items: center;">
+                          <div class="muted" style="font-size: 12px;">
+                            可添加多个 MCP；配置完成后可折叠，避免页面过长。
+                          </div>
+                          <button class="btn btn--sm" type="button" @click=${props.onMcpAddItem}>
+                            + 添加 MCP
+                          </button>
+                        </div>
+                        <div style="margin-top: 8px; display: grid; gap: 10px;">
+                          ${props.mcpItems.map((item) =>
+                            renderEmployeeMcpItem(item, {
+                              onRemoveItem: props.onMcpRemoveItem,
+                              onCollapsedChange: props.onMcpCollapsedChange,
+                              onKeyChange: props.onMcpKeyChange,
+                              onEditModeChange: props.onMcpEditModeChange,
+                              onConnectionTypeChange: props.onMcpConnectionTypeChange,
+                              onFormPatch: props.onMcpFormPatch,
+                              onRawChange: props.onMcpRawChange,
+                            }),
+                          )}
+                        </div>
+                      `}
+                </div>
+                <div class="field" style="margin-top: 8px;">
+                  <span>技能名称（可选）</span>
+                  <input
+                    type="text"
+                    .value=${props.skillUploadName}
+                    @input=${(e: Event) =>
+                      props.onSkillUploadNameChange((e.target as HTMLInputElement).value)}
+                    placeholder="不填则从文件名推导，如 prometheus-1.0.0.zip → prometheus-1.0.0"
+                  />
+                </div>
+                <div class="field" style="margin-top: 8px;">
+                  <span>技能文件（SKILL.md 或 zip，可多选，提交时一并上传）</span>
+                  <input
+                    type="file"
+                    accept=".md,.MD,.zip"
+                    multiple
+                    @change=${(e: Event) => {
+                      const input = e.target as HTMLInputElement;
+                      const files = input.files ? Array.from(input.files) : [];
+                      props.onSkillUploadFilesChange(files);
+                    }}
+                  />
+                </div>
+                ${props.skillUploadError
+                  ? html`
+                      <div class="callout danger" style="margin-top: 8px;">
+                        ${props.skillUploadError}
+                      </div>
+                    `
+                  : nothing}
+              </div>
+            `
+          : nothing}
+        ${props.createError
+          ? html`
+              <div class="callout danger" style="margin-top: 12px;">
+                ${props.createError}
+              </div>
+            `
+          : nothing}
+        <div class="row" style="margin-top: 16px; justify-content: flex-end; gap: 8px;">
+          <button class="btn" ?disabled=${props.createBusy} @click=${props.onCreateClose}>
+            ${t("commonCancel")}
+          </button>
+          <button
+            class="btn primary"
+            ?disabled=${props.createBusy || !props.createName.trim()}
+            @click=${props.onCreateSubmit}
+          >
+            ${props.createBusy ? t("commonLoading") : t("skillsUploadSubmit")}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 export function renderDigitalEmployee(props: DigitalEmployeeProps) {
   const list = props.employees ?? [];
@@ -403,199 +826,7 @@ export function renderDigitalEmployee(props: DigitalEmployeeProps) {
           : nothing
       }
 
-      ${
-        props.editModalOpen
-          ? html`
-              <div class="modal-overlay" @click=${props.onEditClose}>
-                <div class="modal card" @click=${(e: Event) => e.stopPropagation()}>
-                  <div class="card-title">修改数字员工</div>
-                  <div class="field" style="margin-top: 12px;">
-                    <span>名称</span>
-                    <input type="text" .value=${props.editName} disabled />
-                    <div class="list-sub muted" style="font-size: 11px; margin-top: 4px;">名称不可修改</div>
-                  </div>
-                  <div class="field" style="margin-top: 12px;">
-                    <span>描述</span>
-                    <textarea
-                      rows="2"
-                      .value=${props.editDescription}
-                      @input=${(e: Event) =>
-                        props.onEditDescriptionChange(
-                          (e.target as HTMLTextAreaElement).value,
-                        )}
-                    ></textarea>
-                  </div>
-                  <div class="field" style="margin-top: 12px;">
-                    <span>Prompt（可选）</span>
-                    <textarea
-                      rows="4"
-                      .value=${props.editPrompt}
-                      @input=${(e: Event) =>
-                        props.onEditPromptChange(
-                          (e.target as HTMLTextAreaElement).value,
-                        )}
-                      placeholder="为该数字员工编写系统提示/人设说明。"
-                    ></textarea>
-                  </div>
-                  <div class="field" style="margin-top: 12px;">
-                    <span>MCP 配置（可选）</span>
-                    <div class="row" style="margin-top: 6px; gap: 8px; flex-wrap: wrap;">
-                      <button
-                        class="btn ${props.editMcpMode === "builder" ? "primary" : ""}"
-                        type="button"
-                        @click=${() => props.onEditMcpModeChange("builder")}
-                      >
-                        点选配置
-                      </button>
-                      <button
-                        class="btn ${props.editMcpMode === "raw" ? "primary" : ""}"
-                        type="button"
-                        @click=${() => props.onEditMcpModeChange("raw")}
-                      >
-                        原生 JSON
-                      </button>
-                    </div>
-                    ${
-                      props.editMcpMode === "raw"
-                        ? html`
-                            <textarea
-                              rows="4"
-                              style="margin-top: 8px;"
-                              .value=${props.editMcpJson}
-                              @input=${(e: Event) =>
-                                props.onEditMcpJsonChange(
-                                  (e.target as HTMLTextAreaElement).value,
-                                )}
-                              placeholder='{"prometheus":{"service":"prometheus","serviceUrl":"http://localhost:9090"}}'
-                            ></textarea>
-                            <div class="list-sub muted" style="font-size: 11px; margin-top: 4px;">
-                              与主配置 mcp.servers 结构一致，会话时合并（同 key 时员工覆盖）
-                            </div>
-                          `
-                        : html`
-                            <div class="row" style="margin-top: 8px; justify-content: space-between; align-items: center;">
-                              <div class="muted" style="font-size: 12px;">
-                                可添加多个 MCP；配置完成后可折叠，避免页面过长。
-                              </div>
-                              <button class="btn btn--sm" type="button" @click=${props.onEditMcpAddItem}>
-                                + 添加 MCP
-                              </button>
-                            </div>
-                            <div style="margin-top: 8px; display: grid; gap: 10px;">
-                              ${props.editMcpItems.map((item) =>
-                                renderEmployeeMcpItem(item, {
-                                  onRemoveItem: props.onEditMcpRemoveItem,
-                                  onCollapsedChange: props.onEditMcpCollapsedChange,
-                                  onKeyChange: props.onEditMcpKeyChange,
-                                  onEditModeChange: props.onEditMcpEditModeChange,
-                                  onConnectionTypeChange: props.onEditMcpConnectionTypeChange,
-                                  onFormPatch: props.onEditMcpFormPatch,
-                                  onRawChange: props.onEditMcpRawChange,
-                                }),
-                              )}
-                            </div>
-                          `
-                    }
-                  </div>
-                  <div class="field" style="margin-top: 12px;">
-                    <span>已有技能</span>
-                    ${
-                      props.editSkillNames.length === 0
-                        ? html`<div class="muted" style="font-size: 12px;">暂无技能</div>`
-                        : html`
-                            <div class="row" style="flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                              ${props.editSkillNames.map(
-                                (name) =>
-                                  html`
-                                    <span
-                                      class="chip"
-                                      style="display: inline-flex; align-items: center; gap: 4px;"
-                                    >
-                                      ${name}
-                                      ${!props.editSkillsToDelete.includes(name)
-                                        ? html`
-                                            <button
-                                              type="button"
-                                              class="btn btn--sm"
-                                              style="padding: 2px 6px; font-size: 11px;"
-                                              @click=${() => props.onEditSkillDelete(name)}
-                                            >
-                                              删除
-                                            </button>
-                                          `
-                                        : html`
-                                            <span class="muted" style="font-size: 11px;"
-                                              >已标记删除</span
-                                            >
-                                            <button
-                                              type="button"
-                                              class="btn btn--sm"
-                                              style="padding: 2px 6px; font-size: 11px;"
-                                              @click=${() => props.onEditSkillUndoDelete(name)}
-                                            >
-                                              撤销
-                                            </button>
-                                          `}
-                                    </span>
-                                  `,
-                              )}
-                            </div>
-                          `
-                    }
-                  </div>
-                  <div class="field" style="margin-top: 12px;">
-                    <span>新上传技能文件（可多选）</span>
-                    <input
-                      type="file"
-                      accept=".md,.MD,.zip"
-                      multiple
-                      @change=${(e: Event) => {
-                        const input = e.target as HTMLInputElement;
-                        const files = input.files ? Array.from(input.files) : [];
-                        props.onEditSkillFilesChange(files);
-                      }}
-                    />
-                    ${
-                      props.editSkillFilesToUpload.length > 0
-                        ? html`
-                            <div class="row" style="flex-wrap: wrap; gap: 4px; margin-top: 8px;">
-                              ${props.editSkillFilesToUpload.map(
-                                (f) =>
-                                  html`<span class="chip" style="font-size: 12px;"
-                                    >${f.name}</span
-                                  >`,
-                              )}
-                            </div>
-                          `
-                        : nothing
-                    }
-                  </div>
-                  ${
-                    props.editError
-                      ? html`
-                          <div class="callout danger" style="margin-top: 12px;">
-                            ${props.editError}
-                          </div>
-                        `
-                      : nothing
-                  }
-                  <div class="row" style="margin-top: 16px; justify-content: flex-end; gap: 8px;">
-                    <button class="btn" ?disabled=${props.editBusy} @click=${props.onEditClose}>
-                      ${t("commonCancel")}
-                    </button>
-                    <button
-                      class="btn primary"
-                      ?disabled=${props.editBusy}
-                      @click=${props.onEditSubmit}
-                    >
-                      ${props.editBusy ? t("commonLoading") : "保存"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            `
-          : nothing
-      }
+      ${nothing}
     </section>
   `;
 }
