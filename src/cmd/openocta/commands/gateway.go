@@ -119,11 +119,13 @@ func runGateway(cmd *cobra.Command, _ []string) error {
 		logging.Warn("Gateway config load failed: %v", cfgErr)
 	}
 	var cfgMode *string
+	var cfgBind *string
 	if cfg != nil && cfg.Gateway != nil {
 		cfgMode = cfg.Gateway.Mode
+		cfgBind = cfg.Gateway.Bind
 	}
 	runMode := paths.ResolveRunMode(env, cfgMode)
-	addr := paths.ResolveGatewayAddr(port, runMode)
+	addr := paths.ResolveGatewayAddrWithBind(port, runMode, cfgBind)
 
 	cmd.Printf("Starting Gateway on %s (mode=%s, OpenOcta %s)\n", addr, runMode, version.Version)
 	logging.Info("Gateway starting addr=%s mode=%s version=%s", addr, runMode, version.Version)

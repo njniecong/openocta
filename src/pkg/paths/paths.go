@@ -2,9 +2,11 @@ package paths
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -221,8 +223,45 @@ func ResolveRunMode(env func(string) string, gatewayModeFromConfig *string) stri
 // - desktop: 127.0.0.1:port (loopback-only)
 // - service: :port (all interfaces)
 func ResolveGatewayAddr(port int, runMode string) string {
+	return ResolveGatewayAddrWithBind(port, runMode, nil)
+}
+
+// ResolveGatewayAddrWithBind returns the listen address for the given port, run mode and bind config.
+//
+// bind supports:
+// - loopback / localhost / 127.0.0.1 / ::1 => loopback-only
+// - lan / 0.0.0.0 / :: / * => all interfaces
+// - auto / empty => fallback to run mode
+// - any other non-empty value => treat as explicit host and join with port
+func ResolveGatewayAddrWithBind(port int, runMode string, bindFromConfig *string) string {
+	if host, ok := resolveGatewayBindHost(bindFromConfig); ok {
+		return net.JoinHostPort(host, strconv.Itoa(port))
+	}
+
 	if strings.EqualFold(strings.TrimSpace(runMode), "desktop") {
 		return fmt.Sprintf("127.0.0.1:%d", port)
 	}
 	return fmt.Sprintf(":%d", port)
+}
+
+func resolveGatewayBindHost(bindFromConfig *string) (string, bool) {
+	if bindFromConfig == nil {
+		return "", false
+	}
+	raw := strings.TrimSpace(*bindFromConfig)
+	if raw == "" {
+		return "", false
+	}
+	norm := strings.ToLower(raw)
+	switch norm {
+	case "auto":
+		return "", false
+	case "loopback", "localhost", "127.0.0.1":
+		return "127.0.0.1", true
+	case "::1":
+		return "::1", true
+	case "lan", "0.0.0.0", "::", "*":
+		return "", true
+	}
+	return raw, true
 }
