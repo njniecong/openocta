@@ -24,6 +24,12 @@ import {
   parseExecApprovalResolved,
   removeExecApproval,
 } from "./controllers/exec-approval.ts";
+import {
+  resetApprovalsBannerState,
+  runApprovalsBannerPoll,
+  startApprovalsBannerPolling,
+  stopApprovalsBannerPolling,
+} from "./app-approvals-banner.ts";
 import { loadConfigSchema } from "./controllers/config.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadSessions } from "./controllers/sessions.ts";
@@ -148,9 +154,17 @@ export function connectGateway(host: GatewayHost) {
       void loadNodes(host as unknown as OpenClawApp, { quiet: true });
       void loadDevices(host as unknown as OpenClawApp, { quiet: true });
       void refreshActiveTab(host as unknown as Parameters<typeof refreshActiveTab>[0]);
+      const app = host as unknown as OpenClawApp;
+      resetApprovalsBannerState(app);
+      void (async () => {
+        await runApprovalsBannerPoll(app);
+        startApprovalsBannerPolling(app);
+      })();
     },
     onClose: ({ code, reason }) => {
       host.connected = false;
+      stopApprovalsBannerPolling(host as unknown as OpenClawApp);
+      resetApprovalsBannerState(host as unknown as OpenClawApp);
       // Code 1012 = Service Restart (expected during config saves, don't show as error)
       if (code !== 1012) {
         const r = (reason ?? "").trim();

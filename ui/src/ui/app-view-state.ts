@@ -256,6 +256,10 @@ export type AppViewState = {
   approvalsLoading: boolean;
   approvalsResult: import("./controllers/approvals.js").ApprovalsListResult | null;
   approvalsError: string | null;
+  approvalBannerVisible: boolean;
+  approvalBannerPollInitialized: boolean;
+  approvalBannerBaselineIds: string[];
+  approvalBannerPendingCount: number;
   // Models
   modelsSelectedProvider: string | null;
   modelsViewMode: "list" | "card";
@@ -392,6 +396,7 @@ export type AppViewState = {
   logsMaxBytes: number;
   logsAtBottom: boolean;
   client: GatewayBrowserClient | null;
+  approvalBannerPollInterval: number | null;
   refreshSessionsAfterChat: Set<string>;
   connect: () => void;
   setTab: (tab: Tab) => void;
@@ -414,6 +419,7 @@ export type AppViewState = {
   handleNostrProfileImport: () => Promise<void>;
   handleNostrProfileToggleAdvanced: () => void;
   handleExecApprovalDecision: (decision: "allow-once" | "allow-always" | "deny") => Promise<void>;
+  dismissApprovalBanner: () => void;
   handleGatewayUrlConfirm: () => void;
   handleGatewayUrlCancel: () => void;
   handleConfigLoad: () => Promise<void>;

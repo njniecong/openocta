@@ -235,6 +235,10 @@ export class OpenClawApp extends LitElement {
   @state() approvalsLoading = false;
   @state() approvalsResult: import("./controllers/approvals.js").ApprovalsListResult | null = null;
   @state() approvalsError: string | null = null;
+  @state() approvalBannerVisible = false;
+  @state() approvalBannerPollInitialized = false;
+  @state() approvalBannerBaselineIds: string[] = [];
+  @state() approvalBannerPendingCount = 0;
   @state() modelsSelectedProvider: string | null = null;
   @state() modelsViewMode: "list" | "card" = "card";
   @state() modelsFormDirty = false;
@@ -502,6 +506,7 @@ export class OpenClawApp extends LitElement {
   @state() logsAtBottom = true;
 
   client: GatewayBrowserClient | null = null;
+  approvalBannerPollInterval: number | null = null;
   private chatScrollFrame: number | null = null;
   private chatScrollTimeout: number | null = null;
   private chatHasAutoScrolled = false;
@@ -707,6 +712,10 @@ export class OpenClawApp extends LitElement {
     } finally {
       this.execApprovalBusy = false;
     }
+  }
+
+  dismissApprovalBanner() {
+    this.approvalBannerVisible = false;
   }
 
   handleGatewayUrlConfirm() {

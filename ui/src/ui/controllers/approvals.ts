@@ -43,22 +43,33 @@ export type ApprovalsState = {
   approvalsError: string | null;
 };
 
+export function normalizeApprovalsListResult(raw: ApprovalsListResult | undefined | null): ApprovalsListResult {
+  const r = raw ?? { storePath: "", entries: [] };
+  const entries = r.entries ?? [];
+  return {
+    storePath: r.storePath,
+    entries,
+    approved: r.approved ?? entries.filter((e) => e.status === "approved"),
+    pending: r.pending ?? entries.filter((e) => e.status === "pending" || e.status === "expired"),
+    denied: r.denied ?? entries.filter((e) => e.status === "denied"),
+    whitelisted: r.whitelisted ?? [],
+  };
+}
+
+export function collectPendingApprovalIds(result: ApprovalsListResult): string[] {
+  const pend =
+    result.pending ??
+    result.entries.filter((e) => e.status === "pending" || e.status === "expired");
+  return pend.map((e) => e.id).filter((id): id is string => Boolean(id?.trim()));
+}
+
 export async function loadApprovalsList(state: ApprovalsState) {
   if (!state.client || !state.connected) return;
   state.approvalsLoading = true;
   state.approvalsError = null;
   try {
     const res = await state.client.request<ApprovalsListResult | undefined>("approvals.list", {});
-    const raw = res ?? { storePath: "", entries: [] };
-    const entries = raw.entries ?? [];
-    state.approvalsResult = {
-      storePath: raw.storePath,
-      entries,
-      approved: raw.approved ?? entries.filter((e) => e.status === "approved"),
-      pending: raw.pending ?? entries.filter((e) => e.status === "pending" || e.status === "expired"),
-      denied: raw.denied ?? entries.filter((e) => e.status === "denied"),
-      whitelisted: raw.whitelisted ?? [],
-    };
+    state.approvalsResult = normalizeApprovalsListResult(res);
   } catch (err) {
     state.approvalsError = String(err);
     state.approvalsResult = null;

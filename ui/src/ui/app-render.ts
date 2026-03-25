@@ -387,6 +387,37 @@ export function renderApp(state: AppViewState) {
   return html`
     <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
       <header class="topbar">
+        ${
+          state.approvalBannerVisible
+            ? html`
+                <div class="approval-banner" role="status">
+                  <span class="approval-banner__icon" aria-hidden="true">${icons.zap}</span>
+                  <span class="approval-banner__text">
+                    有
+                    ${state.approvalBannerPendingCount}
+                    条敏感命令待人工审批
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn--sm approval-banner__action"
+                    @click=${() => state.setTab("sandbox")}
+                  >
+                    去处理
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--icon approval-banner__close"
+                    aria-label="关闭提示"
+                    title="关闭（仍有新待审批时会再次提示）"
+                    @click=${() => state.dismissApprovalBanner()}
+                  >
+                    ${icons.x}
+                  </button>
+                </div>
+              `
+            : nothing
+        }
+        <div class="topbar__main">
         <div class="topbar-left">
           <button
             class="nav-collapse-toggle"
@@ -505,6 +536,7 @@ export function renderApp(state: AppViewState) {
             <span>Health</span>
             <span class="mono">${state.connected ? "OK" : "Offline"}</span>
           </div>
+        </div>
         </div>
       </header>
       <aside

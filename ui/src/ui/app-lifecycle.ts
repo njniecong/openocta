@@ -1,4 +1,6 @@
 import type { Tab } from "./navigation.ts";
+import { resetApprovalsBannerState, stopApprovalsBannerPolling } from "./app-approvals-banner.ts";
+import type { OpenClawApp } from "./app.ts";
 import { connectGateway } from "./app-gateway.ts";
 import {
   startLogsPolling,
@@ -59,6 +61,8 @@ export function handleDisconnected(host: LifecycleHost) {
   stopNodesPolling(host as unknown as Parameters<typeof stopNodesPolling>[0]);
   stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
   stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
+  stopApprovalsBannerPolling(host as unknown as OpenClawApp);
+  resetApprovalsBannerState(host as unknown as OpenClawApp);
   detachThemeListener(host as unknown as Parameters<typeof detachThemeListener>[0]);
   host.topbarObserver?.disconnect();
   host.topbarObserver = null;
