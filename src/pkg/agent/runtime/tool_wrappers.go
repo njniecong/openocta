@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cexll/agentsdk-go/pkg/tool"
 	"github.com/openocta/openocta/pkg/config"
+	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
 )
 
 // WrapToolWithCommandValidation returns a tool wrapper that applies OpenOcta sandbox.validator

@@ -4,14 +4,12 @@ package security
 import (
 	"fmt"
 	"sync"
-
-	"github.com/cexll/agentsdk-go/pkg/security"
 )
 
 // manager 是 ApprovalQueue 的单例管理器
 type manager struct {
 	mu     sync.RWMutex
-	queues map[string]*security.ApprovalQueue // key: storePath
+	queues map[string]*ApprovalQueue // key: storePath
 }
 
 var (
@@ -23,7 +21,7 @@ var (
 func getManager() *manager {
 	once.Do(func() {
 		instance = &manager{
-			queues: make(map[string]*security.ApprovalQueue),
+			queues: make(map[string]*ApprovalQueue),
 		}
 	})
 	return instance
@@ -31,7 +29,7 @@ func getManager() *manager {
 
 // GetApprovalQueue 获取或创建指定存储路径的 ApprovalQueue 实例
 // 同一个 storePath 会返回同一个实例，确保共享状态
-func GetApprovalQueue(storePath string) (*security.ApprovalQueue, error) {
+func GetApprovalQueue(storePath string) (*ApprovalQueue, error) {
 	if storePath == "" {
 		return nil, fmt.Errorf("security: store path required")
 	}
@@ -55,7 +53,7 @@ func GetApprovalQueue(storePath string) (*security.ApprovalQueue, error) {
 		return q, nil
 	}
 
-	q, err := security.NewApprovalQueue(storePath)
+	q, err := NewApprovalQueue(storePath)
 	if err != nil {
 		return nil, err
 	}
@@ -79,5 +77,5 @@ func ClearApprovalQueues() {
 	m := getManager()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.queues = make(map[string]*security.ApprovalQueue)
+	m.queues = make(map[string]*ApprovalQueue)
 }

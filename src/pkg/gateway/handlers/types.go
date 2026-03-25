@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cexll/agentsdk-go/pkg/tool"
 	"github.com/openocta/openocta/pkg/agent/tools"
 	"github.com/openocta/openocta/pkg/channels"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/cron"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
 	"github.com/openocta/openocta/pkg/outbound"
+	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
 )
 
 // gatewayInvokerAdapter adapts Context.InvokeMethod to tools.GatewayInvoker.

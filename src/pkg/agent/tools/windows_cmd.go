@@ -9,7 +9,7 @@ package tools
 //	"runtime"
 //	"strings"
 //
-//	"github.com/cexll/agentsdk-go/pkg/tool"
+//	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
 //)
 //
 //// WindowsCmdTool executes shell commands on Windows via cmd.exe. Only available when the agent runs on Windows.

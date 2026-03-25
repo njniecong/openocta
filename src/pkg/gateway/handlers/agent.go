@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
 	"github.com/google/uuid"
 	"github.com/openocta/openocta/pkg/agent"
 	"github.com/openocta/openocta/pkg/agent/runtime"
 	"github.com/openocta/openocta/pkg/agent/tools"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
+	"github.com/stellarlinkco/agentsdk-go/pkg/api"
 )
 
 // AgentHandler handles "agent" (simplified: local run, no streaming/delivery).

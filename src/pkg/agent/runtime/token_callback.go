@@ -1,21 +1,20 @@
-// Package runtime: TokenCallback that appends token_usage JSON lines to session transcript files.
+// Package runtime: token usage logging via middleware (agentsdk-go v2 移除了 TokenCallback).
 package runtime
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
 	"github.com/openocta/openocta/pkg/logging"
 	"github.com/openocta/openocta/pkg/session"
+	"github.com/stellarlinkco/agentsdk-go/pkg/middleware"
+	"github.com/stellarlinkco/agentsdk-go/pkg/model"
 )
 
-// NewTokenCallbackForSession returns an api.TokenCallback that appends a token_usage JSON line
-// to the session transcript file at ~/.openocta/agents/<agentID>/sessions/<sessionID>.jsonl.
-// Path is resolved per stats.SessionID using agentID and env. The callback is lightweight and
-// appends one line per invocation; use from the SDK's token tracker (non-blocking recommended).
-func NewTokenCallbackForSession(agentID string, env func(string) string) api.TokenCallback {
+// NewTokenUsageMiddleware appends model usage to the session transcript after each model turn.
+func NewTokenUsageMiddleware(agentID string, env func(string) string) middleware.Middleware {
 	if env == nil {
 		env = func(string) string { return "" }
 	}
@@ -23,23 +22,35 @@ func NewTokenCallbackForSession(agentID string, env func(string) string) api.Tok
 		agentID = session.DefaultAgentID
 	}
 	sessionsDir := session.ResolveAgentSessionsDir(agentID, env)
-	return func(stats api.TokenStats) {
-		sid := stats.SessionID
-		if sid == "" {
-			return
-		}
-		path := filepath.Join(sessionsDir, sid+".jsonl")
-		line := logging.TokenUsageSessionLine{
-			Timestamp:     stats.Timestamp.UTC().Format(time.RFC3339),
-			SessionID:     stats.SessionID,
-			RequestID:     stats.RequestID,
-			Model:         stats.Model,
-			Input:         stats.InputTokens,
-			Output:        stats.OutputTokens,
-			CacheRead:     stats.CacheRead,
-			CacheCreation: stats.CacheCreation,
-			TotalTokens:   stats.TotalTokens,
-		}
-		_ = logging.AppendTokenUsageToSession(path, line)
+	return middleware.Funcs{
+		Identifier: "openocta-token-usage",
+		OnAfterAgent: func(_ context.Context, st *middleware.State) error {
+			if st == nil {
+				return nil
+			}
+			usage, ok := st.Values["model.usage"].(model.Usage)
+			if !ok {
+				return nil
+			}
+			sid, _ := st.Values["session_id"].(string)
+			if sid == "" {
+				return nil
+			}
+			rid, _ := st.Values["request_id"].(string)
+			path := filepath.Join(sessionsDir, sid+".jsonl")
+			line := logging.TokenUsageSessionLine{
+				Timestamp:     time.Now().UTC().Format(time.RFC3339),
+				SessionID:     sid,
+				RequestID:     rid,
+				Model:         "",
+				Input:         int64(usage.InputTokens),
+				Output:        int64(usage.OutputTokens),
+				CacheRead:     int64(usage.CacheReadTokens),
+				CacheCreation: int64(usage.CacheCreationTokens),
+				TotalTokens:   int64(usage.TotalTokens),
+			}
+			_ = logging.AppendTokenUsageToSession(path, line)
+			return nil
+		},
 	}
 }

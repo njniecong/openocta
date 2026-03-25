@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cexll/agentsdk-go/pkg/tool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/openocta/openocta/pkg/config"
+	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
 )
 
 // Manager holds MCP server connections and exposes aggregated tools for the agent.

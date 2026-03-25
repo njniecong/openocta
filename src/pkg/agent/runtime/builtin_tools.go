@@ -1,27 +1,18 @@
-// Package runtime: builtin tools from agentsdk-go (bash, file_read, grep, etc.).
+// Package runtime: builtin tools from agentsdk-go v2 (bash, read, write, edit, grep, glob).
 package runtime
 
 import (
-	"github.com/cexll/agentsdk-go/pkg/runtime/tasks"
-	"github.com/cexll/agentsdk-go/pkg/security"
-	"github.com/cexll/agentsdk-go/pkg/tool"
-	toolbuiltin "github.com/cexll/agentsdk-go/pkg/tool/builtin"
+	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
+	toolbuiltin "github.com/stellarlinkco/agentsdk-go/pkg/tool/builtin"
 )
 
-// BuiltinTools returns the list of built-in tools from agentsdk-go, rooted at projectRoot.
-// Includes: Bash, Read, Write, Edit, Grep, Glob, WebFetch, WebSearch, BashOutput, BashStatus,
-// KillTask, TaskCreate, TaskList, TaskGet, TaskUpdate, AskUserQuestion.
-// TaskStore is created in-memory and shared by task_* tools. Skill, SlashCommand, and Task
-// are not included (they require runtime registry/executor or runner wiring).
-// When sandboxDisabled is true, tools use security.NewDisabledSandbox() so path/permission
-// validation is skipped (matches config.security.sandbox.enabled: false).
+// BuiltinTools returns built-in tools from agentsdk-go v2, rooted at projectRoot.
+// Core builtins: bash, read, write, edit, grep, glob（skill 由 Runtime 单独注册）.
+// When sandboxDisabled is true, tools use nil FileSystemPolicy so path validation is skipped.
 func BuiltinTools(projectRoot string, sandboxDisabled bool) []tool.Tool {
 	if projectRoot == "" {
 		projectRoot = "."
 	}
-	taskStore := tasks.NewTaskStore()
-
-	// When sandbox disabled, use NewDisabledSandbox so tools skip path validation.
 	bash := toolbuiltin.NewBashToolWithRoot(projectRoot)
 	read := toolbuiltin.NewReadToolWithRoot(projectRoot)
 	write := toolbuiltin.NewWriteToolWithRoot(projectRoot)
@@ -29,14 +20,13 @@ func BuiltinTools(projectRoot string, sandboxDisabled bool) []tool.Tool {
 	grep := toolbuiltin.NewGrepToolWithRoot(projectRoot)
 	glob := toolbuiltin.NewGlobToolWithRoot(projectRoot)
 	if sandboxDisabled {
-		disabled := security.NewDisabledSandbox()
-		bash = toolbuiltin.NewBashToolWithSandbox(projectRoot, disabled)
-		read = toolbuiltin.NewReadToolWithSandbox(projectRoot, disabled)
-		write = toolbuiltin.NewWriteToolWithSandbox(projectRoot, disabled)
-		edit = toolbuiltin.NewEditToolWithSandbox(projectRoot, disabled)
-		grep = toolbuiltin.NewGrepToolWithSandbox(projectRoot, disabled)
+		bash = toolbuiltin.NewBashToolWithSandbox(projectRoot, nil)
+		read = toolbuiltin.NewReadToolWithSandbox(projectRoot, nil)
+		write = toolbuiltin.NewWriteToolWithSandbox(projectRoot, nil)
+		edit = toolbuiltin.NewEditToolWithSandbox(projectRoot, nil)
+		grep = toolbuiltin.NewGrepToolWithSandbox(projectRoot, nil)
 		grep.SetRespectGitignore(true)
-		glob = toolbuiltin.NewGlobToolWithSandbox(projectRoot, disabled)
+		glob = toolbuiltin.NewGlobToolWithSandbox(projectRoot, nil)
 		glob.SetRespectGitignore(true)
 	}
 
@@ -47,15 +37,5 @@ func BuiltinTools(projectRoot string, sandboxDisabled bool) []tool.Tool {
 		edit,
 		grep,
 		glob,
-		toolbuiltin.NewWebFetchTool(nil),
-		toolbuiltin.NewWebSearchTool(nil),
-		toolbuiltin.NewBashOutputTool(nil),
-		toolbuiltin.NewBashStatusTool(),
-		toolbuiltin.NewKillTaskTool(),
-		toolbuiltin.NewTaskCreateTool(taskStore),
-		toolbuiltin.NewTaskListTool(taskStore),
-		toolbuiltin.NewTaskGetTool(taskStore),
-		toolbuiltin.NewTaskUpdateTool(taskStore),
-		toolbuiltin.NewAskUserQuestionTool(),
 	}
 }

@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
-	"github.com/cexll/agentsdk-go/pkg/model"
 	"github.com/openocta/openocta/pkg/config"
+	"github.com/stellarlinkco/agentsdk-go/pkg/api"
+	"github.com/stellarlinkco/agentsdk-go/pkg/model"
 )
 
 // builtInProvider describes a known provider with default base URL, API type and env key.

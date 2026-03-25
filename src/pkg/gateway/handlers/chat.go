@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
 	"github.com/google/uuid"
 	mcpManager "github.com/openocta/openocta/pkg/acp/mcp"
 	"github.com/openocta/openocta/pkg/agent"
@@ -28,6 +27,7 @@ import (
 	"github.com/openocta/openocta/pkg/logging"
 	"github.com/openocta/openocta/pkg/mcp"
 	"github.com/openocta/openocta/pkg/session"
+	"github.com/stellarlinkco/agentsdk-go/pkg/api"
 )
 
 var chatLog = logging.Sub("chat")
@@ -1100,7 +1100,6 @@ func ChatSendHandler(opts HandlerOpts) error {
 				ProjectRoot:           projectRoot,
 				Config:                runtimeConfig,
 				EnableSkills:          true,
-				EnableCommands:        true,
 				EnableSubagents:       true,
 				EnableSandbox:         true,
 				EnableApprovalQueue:   true,

@@ -4,7 +4,7 @@ package tools
 import (
 	"context"
 
-	"github.com/cexll/agentsdk-go/pkg/tool"
+	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
 )
 
 // Registry holds custom tools for the agent runtime.
@@ -74,6 +74,7 @@ func DefaultTools() []tool.Tool {
 	return []tool.Tool{
 		EchoTool{},
 		OsInfoTool{},
+		EnvProbeTool{},
 		//WindowsCmdTool{},
 	}
 }
@@ -84,6 +85,7 @@ func DefaultToolsWithInvoker(invoker GatewayInvoker) []tool.Tool {
 	list := []tool.Tool{
 		EchoTool{},
 		OsInfoTool{},
+		EnvProbeTool{},
 		//WindowsCmdTool{},
 	}
 	if invoker != nil {

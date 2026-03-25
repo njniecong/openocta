@@ -7,10 +7,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
-	sdkSkills "github.com/cexll/agentsdk-go/pkg/runtime/skills"
 	agentSkills "github.com/openocta/openocta/pkg/agent/skills"
 	"github.com/openocta/openocta/pkg/config"
+	"github.com/stellarlinkco/agentsdk-go/pkg/api"
+	sdkSkills "github.com/stellarlinkco/agentsdk-go/pkg/runtime/skills"
 )
 
 // BuildSkillRegistrationsFromThreeLocations loads skills from three locations and returns

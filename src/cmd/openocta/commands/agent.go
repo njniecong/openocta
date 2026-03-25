@@ -3,10 +3,10 @@ package commands
 import (
 	"fmt"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
 	"github.com/openocta/openocta/pkg/agent/runtime"
 	"github.com/openocta/openocta/pkg/agent/tools"
 	"github.com/spf13/cobra"
+	"github.com/stellarlinkco/agentsdk-go/pkg/api"
 )
 
 func init() {

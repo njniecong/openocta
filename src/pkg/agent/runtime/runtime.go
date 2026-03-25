@@ -9,21 +9,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	sdkagent "github.com/cexll/agentsdk-go/pkg/agent"
-	"github.com/cexll/agentsdk-go/pkg/middleware"
+	"github.com/stellarlinkco/agentsdk-go/pkg/middleware"
 
-	"github.com/cexll/agentsdk-go/pkg/api"
-	agentsdkConfg "github.com/cexll/agentsdk-go/pkg/config"
-	"github.com/cexll/agentsdk-go/pkg/core/events"
-	"github.com/cexll/agentsdk-go/pkg/model"
-	"github.com/cexll/agentsdk-go/pkg/sandbox"
-	"github.com/cexll/agentsdk-go/pkg/tool"
 	"github.com/openocta/openocta/pkg/agent"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/paths"
 	octasecurity "github.com/openocta/openocta/pkg/security"
+	"github.com/stellarlinkco/agentsdk-go/pkg/api"
+	agentsdkConfg "github.com/stellarlinkco/agentsdk-go/pkg/config"
+	"github.com/stellarlinkco/agentsdk-go/pkg/model"
+	"github.com/stellarlinkco/agentsdk-go/pkg/sandbox"
+	"github.com/stellarlinkco/agentsdk-go/pkg/tool"
 )
 
 // Runtime wraps agentsdk-go Runtime for OPENOCTA.
@@ -83,20 +80,11 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	//		}
 	//	}
 	//}
-	apiOpts.TokenTracking = opts.TokenTracking
-	if apiOpts.TokenTracking && opts.TokenCallback != nil {
-		apiOpts.TokenCallback = opts.TokenCallback
-	} else if apiOpts.TokenTracking && opts.Env != nil {
-		apiOpts.TokenCallback = NewTokenCallbackForSession(opts.AgentID, opts.Env)
-	}
 	if opts.EnableSkills {
 		regs := BuildSkillRegistrationsFromThreeLocations(projectRoot, opts.Config)
 		if len(regs) > 0 {
 			apiOpts.Skills = regs
 		}
-	}
-	if opts.EnableCommands && len(opts.Commands) > 0 {
-		apiOpts.Commands = opts.Commands
 	}
 	if opts.EnableSubagents && len(opts.Subagents) > 0 {
 		apiOpts.Subagents = opts.Subagents
@@ -161,7 +149,12 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 		}
 	}
 
-	// Approval Queue: when enabled, set Permissions.ask for Bash and wire SDK ApprovalQueue store.
+	var (
+		approvalQ         *octasecurity.ApprovalQueue
+		approvalBlockWait bool
+	)
+
+	// Approval Queue: when enabled, set Permissions.ask for Bash and attach OpenOcta middleware (SDK v2 无内置队列).
 	if opts.EnableApprovalQueue && approvalQueueCfg != nil && approvalQueueCfg.Enabled != nil && *approvalQueueCfg.Enabled {
 		if apiOpts.SettingsOverrides.Permissions == nil {
 			apiOpts.SettingsOverrides.Permissions = &agentsdkConfg.PermissionsConfig{}
@@ -185,39 +178,8 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 		if strings.TrimSpace(approvalStorePath) != "" {
 			q, err := octasecurity.GetApprovalQueue(approvalStorePath)
 			if err == nil {
-				apiOpts.ApprovalQueue = q
-				apiOpts.ApprovalApprover = "gateway"
-				// Block tool execution and wait for approval based on configuration.
-				// If BlockOnApproval is true (default), block and wait; if false, return error immediately.
-				apiOpts.ApprovalWait = approvalQueueCfg.BlockOnApproval == nil || *approvalQueueCfg.BlockOnApproval
-				if approvalQueueCfg.TimeoutSeconds != nil {
-					apiOpts.ApprovalWhitelistTTL = time.Duration(*approvalQueueCfg.TimeoutSeconds) * time.Second
-				} else {
-					apiOpts.ApprovalWhitelistTTL = time.Minute * 5
-				}
-				// 可选：配置 PermissionRequestHandler 用于自定义审批处理
-				apiOpts.PermissionRequestHandler = func(ctx context.Context, req api.PermissionRequest) (events.PermissionDecisionType, error) {
-					// 如果没有审批记录，默认进入人工审批
-					if req.Approval == nil {
-						return events.PermissionAsk, nil
-					}
-					// 如果审批已过期，则再次进入人工审批
-					if req.Approval.IsExpired(time.Now()) {
-						return events.PermissionAsk, nil
-					}
-					// 根据审批状态直接返回权限决策
-					switch string(req.Approval.State) {
-					case "approved":
-						return events.PermissionAllow, nil
-					case "denied":
-						return events.PermissionDeny, nil
-					case "pending":
-						return events.PermissionAsk, nil
-					default:
-						// 未知状态，出于安全考虑，仍然要求人工审批
-						return events.PermissionAsk, nil
-					}
-				}
+				approvalQ = q
+				approvalBlockWait = approvalQueueCfg.BlockOnApproval == nil || *approvalQueueCfg.BlockOnApproval
 			} else {
 				log.Errorf("Warning: failed to create approval queue: %v", err)
 			}
@@ -229,17 +191,24 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 		}
 	}
 
+	var mw []middleware.Middleware
+
+	if opts.Config != nil && opts.Config.Gateway != nil && opts.Config.Gateway.LlmTrace != nil &&
+		opts.Config.Gateway.LlmTrace.Enabled != nil && *opts.Config.Gateway.LlmTrace.Enabled {
+		mw = append(mw, middleware.NewTraceMiddleware(filepath.Join(projectRoot, ".trace")))
+	}
+
 	// Command validation middleware (BeforeTool): emits early errors for audit/logging.
 	if validatorCfg != nil && (validatorCfg.Enabled == nil || *validatorCfg.Enabled) {
-		apiOpts.Middleware = append(apiOpts.Middleware, middleware.Funcs{
+		mw = append(mw, middleware.Funcs{
 			Identifier: "openocta-command-validator",
 			OnBeforeTool: func(_ context.Context, st *middleware.State) error {
-				call, ok := st.ToolCall.(sdkagent.ToolCall)
+				call, ok := st.ToolCall.(model.ToolCall)
 				if !ok {
 					return nil
 				}
 				if strings.EqualFold(strings.TrimSpace(call.Name), "bash") {
-					if cmd, _ := call.Input["command"].(string); strings.TrimSpace(cmd) != "" {
+					if cmd, _ := call.Arguments["command"].(string); strings.TrimSpace(cmd) != "" {
 						return ValidateCommandWithConfig(cmd, validatorCfg)
 					}
 				}
@@ -247,6 +216,24 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 			},
 		})
 	}
+
+	if approvalQ != nil {
+		mw = append(mw, approvalQueueMiddleware(approvalQ, approvalBlockWait))
+	}
+
+	if opts.TokenTracking {
+		env := opts.Env
+		if env == nil {
+			env = func(string) string { return "" }
+		}
+		agentID := opts.AgentID
+		if strings.TrimSpace(agentID) == "" {
+			agentID = "main"
+		}
+		mw = append(mw, NewTokenUsageMiddleware(agentID, env))
+	}
+
+	apiOpts.Middleware = mw
 	if opts.EnableSystemPrompt {
 		if opts.SystemPromptOverrides != "" {
 			apiOpts.SystemPrompt = opts.SystemPromptOverrides
@@ -272,15 +259,6 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	//	ServiceName: "openclaw",
 	//	Endpoint:    "http://192.168.50.254:14318",
 	//}
-	// Trace middleware: enabled only when gateway.llmTrace.enabled is true (default: false)
-	if opts.Config != nil && opts.Config.Gateway != nil && opts.Config.Gateway.LlmTrace != nil &&
-		opts.Config.Gateway.LlmTrace.Enabled != nil && *opts.Config.Gateway.LlmTrace.Enabled {
-		traceMW := middleware.NewTraceMiddleware(filepath.Join(projectRoot, ".trace"))
-		apiOpts.Middleware = []middleware.Middleware{
-			traceMW,
-		}
-	}
-
 	rt, err := api.New(ctx, apiOpts)
 	if err != nil {
 		return nil, err
@@ -298,8 +276,6 @@ type Options struct {
 	Config *config.OpenOctaConfig
 	// EnableSkills loads skills from built-in, ~/.openocta/skills, and <workspace>/skills and registers them with the runtime.
 	EnableSkills bool
-	// EnableCommands enables slash-command execution when Commands is non-empty.
-	EnableCommands bool
 	// EnableSubagents enables subagent dispatch when Subagents is non-empty.
 	EnableSubagents bool
 	// EnableSandbox attaches sandbox manager for tool execution (filesystem/network/resource limits).
@@ -307,8 +283,6 @@ type Options struct {
 	// EnableApprovalQueue enables approval queue + permission ask wiring when config.security.approvalQueue.enabled is true.
 	// When false, config may still be present but no approval wiring is installed.
 	EnableApprovalQueue bool
-	// Commands is the list of slash-command registrations (used when EnableCommands is true).
-	Commands []api.CommandRegistration
 	// Subagents is the list of subagent registrations (used when EnableSubagents is true).
 	Subagents []api.SubagentRegistration
 	// Sandbox overrides default sandbox options when EnableSandbox is true (optional).
@@ -317,11 +291,9 @@ type Options struct {
 	MCPServers []string
 	// TokenTracking enables token usage recording; default true when creating runtime for chat.
 	TokenTracking bool
-	// TokenCallback is called after each token usage; when nil and TokenTracking true, logs to ~/.openocta/agents/<agentID>/sessions/<sessionID>.jsonl.
-	TokenCallback api.TokenCallback
-	// AgentID is used to resolve session transcript path for default TokenCallback (e.g. "main").
+	// AgentID is used to resolve session transcript path for token usage logging (e.g. "main").
 	AgentID string
-	// Env is used to resolve state dir for default TokenCallback (e.g. os.Getenv).
+	// Env is used to resolve state dir (e.g. os.Getenv).
 	Env func(string) string
 	// EnableSystemPrompt builds system prompt from ~/.openocta/workspace and ProjectRoot/prompt (deduped by filename) and sets api.Options.SystemPrompt.
 	EnableSystemPrompt bool

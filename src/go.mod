@@ -3,7 +3,6 @@ module github.com/openocta/openocta
 go 1.25
 
 require (
-	github.com/cexll/agentsdk-go v0.9.5
 	github.com/go-sphere/wecom-aibot-go-sdk v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -13,6 +12,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.8.1
+	github.com/stellarlinkco/agentsdk-go v1.0.0
 	github.com/tencent-connect/botgo v0.2.1
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/oauth2 v0.34.0
@@ -85,7 +85,7 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/cexll/agentsdk-go v0.9.5 => /Users/ZhanBei/GoProjects/agentsdk-go
+replace github.com/stellarlinkco/agentsdk-go => github.com/zhanbei1/agentsdk-go v1.0.1
 
 // 使用 zhanbei1 fork（含扫码创建机器人 HTTP 与 aibot 包，module 路径仍为 go-sphere）
 replace github.com/go-sphere/wecom-aibot-go-sdk => github.com/zhanbei1/wecom-aibot-go-sdk v0.0.1

@@ -5,8 +5,8 @@ package http
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/cexll/agentsdk-go/pkg/middleware"
 	"github.com/google/uuid"
 	"github.com/openocta/openocta/embed"
 	"github.com/openocta/openocta/pkg/acp/mcp"
@@ -24,6 +24,7 @@ import (
 	initpkg "github.com/openocta/openocta/pkg/init"
 	"github.com/openocta/openocta/pkg/outbound"
 	"github.com/openocta/openocta/pkg/paths"
+	"github.com/stellarlinkco/agentsdk-go/pkg/middleware"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -37,6 +38,38 @@ import (
 	"sync"
 	"time"
 )
+
+// httpTraceJSONLWriter implements middleware.HTTPTraceWriter (agentsdk-go v2 精简了 HTTP trace API).
+type httpTraceJSONLWriter struct {
+	mu   sync.Mutex
+	path string
+}
+
+func newHTTPTraceJSONLWriter(dir string) (*httpTraceJSONLWriter, error) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+	return &httpTraceJSONLWriter{path: filepath.Join(dir, "http.jsonl")}, nil
+}
+
+func (w *httpTraceJSONLWriter) WriteHTTPTrace(ev *middleware.HTTPTraceEvent) error {
+	if w == nil || ev == nil {
+		return nil
+	}
+	payload, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	f, err := os.OpenFile(w.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	_, werr := f.Write(append(payload, '\n'))
+	_ = f.Close()
+	return werr
+}
 
 // Server is the Gateway HTTP server.
 type Server struct {
@@ -335,18 +368,7 @@ func (s *Server) Handler() http.Handler {
 		s.mux.ServeHTTP(w, r)
 	})
 
-	// todo： 生产环境建议去掉，仅用于开发环境。桌面 app 下禁用 trace 避免干扰响应。
 	var handler http.Handler = handlerFunc
-	if os.Getenv("OPENOCTA_RUN_MODE") != "desktop" {
-		httpTraceDir := filepath.Join(".", ".claude-trace")
-		if writer, err := middleware.NewFileHTTPTraceWriter(httpTraceDir); err == nil {
-			httpTrace := middleware.NewHTTPTraceMiddleware(
-				writer,
-				middleware.WithHTTPTraceMaxBodyBytes(2<<20),
-			)
-			handler = httpTrace.Wrap(handlerFunc)
-		}
-	}
 	return handler
 }
 
