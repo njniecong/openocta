@@ -19,54 +19,39 @@ export function renderAbout(props: AboutViewProps) {
   const imgSrc = props.basePath ? `${props.basePath}/wechat.png` : "/wechat.png";
 
   return html`
-    <div class="about-page emp-page">
-      <div class="about-page__inner">
-        <section class="about-hero card">
-          <h2 class="about-hero__title">OpenOcta 八爪鱼</h2>
-          <p class="about-hero__lead">
-            <strong>OpenOcta 八爪鱼</strong> —— 开源企业级智能体，专为运维而生
-          </p>
-        </section>
+    <div class="card">
+      <div class="card-title">邮箱</div>
+      <div class="card-sub">OpenOcta官方邮箱</div>
+      <a href="mailto:zhanghp@databuff.com" style="display:inline-flex;margin-top:20px;">zhanghp@databuff.com</a>
+    </div>
 
-        <section class="about-section card">
-          <h3 class="about-section__title">加入社群</h3>
-          <p class="muted">扫描下方二维码加入微信群，获取更新与交流支持。</p>
-          <div class="about-qr-wrap">
-            <img class="about-qr" src=${imgSrc} width="200" height="200" alt="OpenOcta 微信群二维码" loading="lazy" />
-          </div>
-        </section>
+    <div class="card">
+      <div class="card-title">微信小助手</div>
+      <div class="card-sub">微信扫码添加小助手，加入交流群</div>
+      <img style="display:block;margin-top:20px;" src=${imgSrc} width="200" height="200" alt="OpenOcta 微信群二维码" loading="lazy" />
+    </div>
 
-        <section class="about-section card">
-          <h3 class="about-section__title">商务合作</h3>
-          <p>
-            商业授权、合作咨询请联系邮箱：
-            <a href="mailto:zhanghp@databuff.com"><strong>zhanghp@databuff.com</strong></a>
-          </p>
-          <p class="muted small">如需电话沟通，请在邮件中说明需求与联系方式，我们会尽快回复。</p>
-        </section>
+    <div class="card">
+      <div class="card-title">版权声明</div>
+      <p>本仓库遵循 <strong>GPLv3</strong> 开源限制。</p>
+      <p>你可以基于 OpenOcta 的源代码进行二次开发，但是需要遵守以下规定：</p>
+      <ul class="about-list">
+        <li>不能替换和修改 OpenOcta 的 Logo 和版权信息；</li>
+        <li>二次开发后的衍生作品必须遵守 GPLv3 的开源义务。</li>
+      </ul>
+      <p>如需商业授权，请联系：<strong>zhanghp@databuff.com</strong>。</p>
+    </div>
 
-        <section class="about-section card about-section--legal">
-          <h3 class="about-section__title">版权声明</h3>
-          <p>本仓库遵循 <strong>GPLv3</strong> 开源限制。</p>
-          <p>你可以基于 OpenOcta 的源代码进行二次开发，但是需要遵守以下规定：</p>
-          <ul class="about-list">
-            <li>不能替换和修改 OpenOcta 的 Logo 和版权信息；</li>
-            <li>二次开发后的衍生作品必须遵守 GPLv3 的开源义务。</li>
-          </ul>
-          <p>如需商业授权，请联系：<strong>zhanghp@databuff.com</strong>。</p>
-        </section>
-
-        <section class="about-section card about-section--danger">
-          <h3 class="about-section__title">卸载 OpenOcta</h3>
-          <p class="muted">
-            在桌面应用或本机已连接网关时，可选择仅删除程序或一并清除本地数据目录。操作将安排在数秒后执行；桌面版在确认成功后会自动退出应用，请先保存工作。
-          </p>
-          <button type="button" class="btn btn--danger-outline" @click=${props.onOpenUninstallModal}>
-            <span class="btn__icon" aria-hidden="true">${icons.trash}</span>
-            卸载 OpenOcta
-          </button>
-        </section>
-      </div>
+    <div class="card">
+      <div class="card-title">卸载 OpenOcta</div>
+      <p class="muted">
+        在桌面应用或本机已连接网关时，可选择仅删除程序或一并清除本地数据目录。操作将安排在数秒后执行；桌面版在确认成功后会自动退出应用，请先保存工作。
+      </p>
+      <button type="button" class="btn btn--danger-outline" @click=${props.onOpenUninstallModal}>
+        <span class="btn__icon" aria-hidden="true">${icons.trash}</span>
+        卸载 OpenOcta
+      </button>
+    </div>
 
       ${props.uninstallModalOpen
         ? html`

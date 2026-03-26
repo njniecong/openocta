@@ -4,14 +4,13 @@
 
 /* Layout Container */
 .config-layout {
+  flex: 1;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 0;
-  height: calc(100vh - 160px);
-  margin: -16px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--bg);
+  overflow: hidden;
 }
 
 /* ===========================================
@@ -31,8 +30,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 18px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--border);
+}
+.config-sidebar__header .pill {
+  line-height: 16px;
 }
 
 .config-sidebar__title {
@@ -54,47 +56,24 @@
   border-bottom: 1px solid var(--border);
 }
 
-.config-search__icon {
+.config-search .config-search__icon {
   position: absolute;
-  left: 28px;
+  left: 24px;
   top: 50%;
   transform: translateY(-50%);
   width: 16px;
   height: 16px;
   color: var(--text-secondary);
   pointer-events: none;
+  z-index: 1;
 }
 
-.config-search__input {
+.config-search .input {
   width: 100%;
-  padding: 11px 36px 11px 42px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  font-size: 13px;
-  outline: none;
-  transition:
-    border-color var(--duration-fast) ease,
-    box-shadow var(--duration-fast) ease,
-    background var(--duration-fast) ease;
 }
 
-.config-search__input::placeholder {
-  color: var(--text-secondary);
-}
-
-.config-search__input:focus {
-  border-color: var(--accent);
-  box-shadow: var(--focus-ring);
-  background: var(--bg);
-}
-
-:root[data-theme="light"] .config-search__input {
-  background: white;
-}
-
-:root[data-theme="light"] .config-search__input:focus {
-  background: white;
+.config-search .config-search__input {
+  padding-left: 30px;
 }
 
 .config-search__clear {
@@ -251,7 +230,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 14px 22px;
+  padding: 12px 20px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
@@ -465,6 +444,7 @@
   font-family: var(--mono);
   font-size: 13px;
   line-height: 1.55;
+  font-weight: normal;
 }
 
 /* Loading State */

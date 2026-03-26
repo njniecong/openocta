@@ -3,6 +3,7 @@
    =========================================== */
 
 .input,
+.date,
 .select,
 .textarea,
 .checkbox,
@@ -11,6 +12,7 @@
   position: relative;
 }
 .input > input,
+.date > input,
 .select > select,
 .textarea > textarea {
   width: 100%;
@@ -34,7 +36,7 @@
 }
 .select {
   > select {
-    padding-right: 20px;
+    padding-right: 22px;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -61,6 +63,7 @@
 }
 .small {
   &.input > input,
+  &.date > input,
   &.select > select,
   &.textarea > textarea {
     height: 28px;
@@ -68,7 +71,7 @@
   }
   &.select {
     > select {
-      padding-right: 16px;
+      padding-right: 18px;
     }
     &::after {
       right: 8px;
@@ -78,6 +81,7 @@
 .checkbox,
 .radio {
   align-items: center;
+  vertical-align: middle;
   > input {
     appearance: none;
     -webkit-appearance: none;

@@ -655,7 +655,7 @@ export function renderApp(state: AppViewState) {
           : html`
               <section class="content-header">
                 <div>
-                  ${state.tab === "usage" ? nothing : html`<div class="page-title">${titleForTab(state.tab)}</div>`}
+                  <div class="page-title">${titleForTab(state.tab)}</div>
                   ${
                     state.tab === "cron" || state.tab === "scheduledTasks"
                       ? html`<div class="page-summary">网关中所有已调度任务</div>`
