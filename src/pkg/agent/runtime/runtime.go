@@ -239,6 +239,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	}
 
 	apiOpts.Middleware = mw
+	apiOpts.Skylark = mergeSkylarkOptions(opts)
 	if opts.EnableSystemPrompt {
 		if opts.SystemPromptOverrides != "" {
 			apiOpts.SystemPrompt = opts.SystemPromptOverrides
@@ -304,6 +305,55 @@ type Options struct {
 	EnableSystemPrompt bool
 	// SystemPromptOverrides if non-empty replaces the auto-built system prompt when EnableSystemPrompt is true.
 	SystemPromptOverrides string
+	// Skylark sets api.Options.Skylark directly; when nil, mergeSkylarkOptions uses config agents.defaults.skylark and OPENOCTA_SKYLARK (default on).
+	Skylark *api.SkylarkOptions
+}
+
+// mergeSkylarkOptions resolves api.SkylarkOptions: explicit opts.Skylark wins; then OPENOCTA_SKYLARK; then agents.defaults.skylark; default enabled (see agentsdk-go docs/skylark.md).
+func mergeSkylarkOptions(opts Options) *api.SkylarkOptions {
+	if opts.Skylark != nil {
+		return opts.Skylark
+	}
+	env := opts.Env
+	if env == nil {
+		env = func(string) string { return "" }
+	}
+	v := strings.TrimSpace(strings.ToLower(env("OPENOCTA_SKYLARK")))
+	if v == "0" || v == "false" || v == "off" || v == "no" {
+		return &api.SkylarkOptions{Enabled: false}
+	}
+	if v == "1" || v == "true" || v == "yes" || v == "on" {
+		return &api.SkylarkOptions{Enabled: true}
+	}
+	if o := skylarkFromAgentDefaults(opts.Config); o != nil {
+		return o
+	}
+	return &api.SkylarkOptions{Enabled: true}
+}
+
+func skylarkFromAgentDefaults(cfg *config.OpenOctaConfig) *api.SkylarkOptions {
+	if cfg == nil || cfg.Agents == nil || cfg.Agents.Defaults == nil || cfg.Agents.Defaults.Skylark == nil {
+		return nil
+	}
+	sk := cfg.Agents.Defaults.Skylark
+	if sk.Enabled == nil && sk.DataDir == "" && sk.DisableEmbedding == nil && sk.KeepAutoSkills == nil {
+		return nil
+	}
+	o := &api.SkylarkOptions{
+		DataDir: strings.TrimSpace(sk.DataDir),
+	}
+	if sk.Enabled != nil {
+		o.Enabled = *sk.Enabled
+	} else {
+		o.Enabled = true
+	}
+	if sk.DisableEmbedding != nil {
+		o.DisableEmbedding = *sk.DisableEmbedding
+	}
+	if sk.KeepAutoSkills != nil {
+		o.KeepAutoSkills = *sk.KeepAutoSkills
+	}
+	return o
 }
 
 func resolveApprovalQueueStorePath(s *config.SandboxConfig, env func(string) string) string {

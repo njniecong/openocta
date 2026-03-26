@@ -509,6 +509,16 @@ type AgentDefaultsConfig struct {
 	MaxConcurrent          *int                             `json:"maxConcurrent,omitempty"`
 	Subagents              *AgentSubagentsConfig            `json:"subagents,omitempty"`
 	Sandbox                *AgentSandboxConfig              `json:"sandbox,omitempty"`
+	// Skylark enables agentsdk-go progressive retrieval (see agentsdk-go docs/skylark.md). When omitted, runtime defaults to enabled unless OPENOCTA_SKYLARK=0.
+	Skylark *SkylarkConfig `json:"skylark,omitempty"`
+}
+
+// SkylarkConfig maps to api.SkylarkOptions (Bleve index under .agents/skylark by default).
+type SkylarkConfig struct {
+	Enabled          *bool  `json:"enabled,omitempty"`
+	DataDir          string `json:"dataDir,omitempty"`
+	DisableEmbedding *bool  `json:"disableEmbedding,omitempty"`
+	KeepAutoSkills   *bool  `json:"keepAutoSkills,omitempty"`
 }
 
 // AgentModelListConfig holds model list configuration.
