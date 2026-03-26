@@ -89,6 +89,8 @@ export type SkillListItem = {
   folder: string;
   name: string;
   description?: string;
+  /** 官网/代理返回的封面图（相对路径经 resolveLogoUrl 后加载） */
+  logo_url?: string;
   emoji?: string;
   categoryCn?: string;
   tags?: string;
@@ -101,6 +103,7 @@ export type SkillListItem = {
 export type SkillDetail = {
   content?: string;
   frontmatter?: Record<string, unknown>;
+  logo_url?: string;
 };
 
 export type EduLesson = {

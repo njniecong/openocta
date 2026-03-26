@@ -1,6 +1,6 @@
 import { html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import type { SkillDetail, SkillListItem } from "../controllers/remote-market.ts";
+import { resolveLogoUrl, type SkillDetail, type SkillListItem } from "../controllers/remote-market.ts";
 import { toSanitizedMarkdownHtml } from "../markdown.ts";
 import { t } from "../strings.js";
 
@@ -12,11 +12,31 @@ const SKILL_ICON_SVG = html`
   </svg>
 `;
 
+function renderSkillCardIcon(
+  gatewayHost: string | undefined,
+  logoUrlRaw: string | undefined,
+  emoji: string | undefined,
+) {
+  const logoUrl = resolveLogoUrl(logoUrlRaw, gatewayHost);
+  const useDefaultSvg = !logoUrl && !emoji;
+  return html`
+    <div class="emp-card__icon ${useDefaultSvg ? "emp-card__icon--default" : ""}">
+      ${logoUrl
+        ? html`<img src=${logoUrl} alt="" loading="lazy" decoding="async" />`
+        : emoji
+          ? emoji
+          : SKILL_ICON_SVG}
+    </div>
+  `;
+}
+
 export type SkillLibraryProps = {
   loading: boolean;
   error: string | null;
   /** 安装成功提示（如 "安装成功：summarize-100（测试与安全）"） */
   installSuccess: string | null;
+  /** 与 fetch 一致，用于解析相对 logo 路径（Vite 开发等场景） */
+  gatewayHost?: string;
   query: string;
   items: SkillListItem[];
   selectedFolder: string | null;
@@ -285,9 +305,7 @@ export function renderSkillLibrary(props: SkillLibraryProps) {
                               return html`
                                 <div class="emp-card-wrap ${active ? "active" : ""}">
                                   <div class="emp-card emp-card-btn" @click=${() => props.onSelect(it.folder)}>
-                                    <div class="emp-card__icon ${!it.emoji ? "emp-card__icon--default" : ""}">
-                                      ${it.emoji ? it.emoji : SKILL_ICON_SVG}
-                                    </div>
+                                    ${renderSkillCardIcon(props.gatewayHost, it.logo_url, it.emoji)}
                                     <div class="emp-card__actions">
                                       ${renderSkillCardActions(props, it.folder, true, enabled, installing, it.categoryCn)}
                                     </div>
@@ -327,9 +345,7 @@ export function renderSkillLibrary(props: SkillLibraryProps) {
                                       return html`
                                         <div class="emp-card-wrap ${active ? "active" : ""}">
                                           <div class="emp-card emp-card-btn" @click=${() => props.onSelect(it.folder)}>
-                                            <div class="emp-card__icon ${!it.emoji ? "emp-card__icon--default" : ""}">
-                                              ${it.emoji ? it.emoji : SKILL_ICON_SVG}
-                                            </div>
+                                            ${renderSkillCardIcon(props.gatewayHost, it.logo_url, it.emoji)}
                                             <div class="emp-card__actions">
                                               ${renderSkillCardActions(
                                                 props,
@@ -464,7 +480,21 @@ export function renderSkillLibrary(props: SkillLibraryProps) {
                 <div class="modal card emp-detail-modal emp-detail-modal--large" @click=${(e: Event) => e.stopPropagation()}>
                   <div class="emp-detail-modal__header">
                     <div class="emp-detail-header" style="flex: 1; min-width: 0;">
-                      <h1 id="emp-detail-title" class="emp-detail-title" style="margin: 0;">${props.selectedFolder}</h1>
+                      <div class="emp-detail-title-wrap">
+                        ${(() => {
+                          const sel = props.items.find((i) => i.folder === props.selectedFolder);
+                          const logoUrl = resolveLogoUrl(
+                            props.selectedDetail?.logo_url ?? sel?.logo_url,
+                            props.gatewayHost,
+                          );
+                          return logoUrl
+                            ? html`<div class="emp-detail-logo"><img src=${logoUrl} alt="" /></div>`
+                            : html`
+                                <div class="emp-detail-logo emp-detail-logo--default">${SKILL_ICON_SVG}</div>
+                              `;
+                        })()}
+                        <h1 id="emp-detail-title" class="emp-detail-title" style="margin: 0;">${props.selectedFolder}</h1>
+                      </div>
                       <div class="emp-detail-meta-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
                         ${(() => {
                           const folder = props.selectedFolder ?? "";

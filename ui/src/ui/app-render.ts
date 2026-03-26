@@ -1981,6 +1981,7 @@ export function renderApp(state: AppViewState) {
                 loading: state.skillLibraryLoading,
                 error: state.skillLibraryError,
                 installSuccess: state.skillLibraryInstallSuccess,
+                gatewayHost: state.settings?.gatewayUrl?.trim(),
                 query: state.skillLibraryQuery,
                 selectedCategory: state.skillLibraryCategory,
                 selectedStatus: state.skillLibraryStatus,
