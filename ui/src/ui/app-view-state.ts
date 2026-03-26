@@ -374,6 +374,8 @@ export type AppViewState = {
   aboutUninstallMode: "program" | "full";
   aboutUninstallLoading: boolean;
   aboutUninstallError: string | null;
+  aboutClearWorkspaceLoading: boolean;
+  aboutClearWorkspaceError: string | null;
   debugLoading: boolean;
   debugStatus: StatusSummary | null;
   debugHealth: HealthSnapshot | null;

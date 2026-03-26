@@ -393,6 +393,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PATCH /api/config/patch", s.requireGatewayToken(s.handleConfigPatch))
 	s.mux.HandleFunc("POST /api/desktop/uninstall", s.requireGatewayToken(s.handleDesktopUninstall))
 	s.mux.HandleFunc("OPTIONS /api/desktop/uninstall", s.handleDesktopUninstallOptions)
+	s.mux.HandleFunc("POST /api/desktop/clear-workspace", s.requireGatewayToken(s.handleDesktopClearWorkspace))
+	s.mux.HandleFunc("OPTIONS /api/desktop/clear-workspace", s.handleDesktopClearWorkspaceOptions)
 	s.mux.HandleFunc("POST /api/desktop/open-url", s.requireGatewayToken(s.handleDesktopOpenURL))
 	s.mux.HandleFunc("OPTIONS /api/desktop/open-url", s.handleDesktopOpenURLOptions)
 

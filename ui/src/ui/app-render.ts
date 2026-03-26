@@ -327,7 +327,7 @@ import { renderSessions } from "./views/sessions.ts";
 import { computeSkillLibraryCategories, renderSkillLibrary } from "./views/skill-library.ts";
 import { computeToolLibraryCategories, renderToolLibrary } from "./views/tool-library.ts";
 import { renderTutorials } from "./views/tutorials.ts";
-import { requestDesktopUninstall } from "./controllers/desktop-uninstall.ts";
+import { requestDesktopClearWorkspace, requestDesktopUninstall } from "./controllers/desktop-uninstall.ts";
 import { openExternalUrl } from "./open-external-url.ts";
 import { renderAbout } from "./views/about.ts";
 import { renderLlmTrace } from "./views/llm-trace.ts";
@@ -2350,6 +2350,36 @@ export function renderApp(state: AppViewState) {
           state.tab === "aboutUs"
             ? renderAbout({
                 basePath,
+                clearWorkspaceLoading: state.aboutClearWorkspaceLoading,
+                clearWorkspaceError: state.aboutClearWorkspaceError,
+                onClearWorkspace: async () => {
+                  const ok = window.confirm(
+                    "将删除本机默认工作区目录内的全部内容（macOS / Linux 一般为 ~/.openocta/workspace，Windows 一般为 %APPDATA%\\openocta\\workspace）。\n\n此操作不可恢复，请先备份重要文稿。是否继续？",
+                  );
+                  if (!ok) return;
+                  const gw = state.settings?.gatewayUrl?.trim();
+                  if (!gw) {
+                    state.aboutClearWorkspaceError = "请先在 Overview 中配置 Gateway URL。";
+                    return;
+                  }
+                  state.aboutClearWorkspaceLoading = true;
+                  state.aboutClearWorkspaceError = null;
+                  try {
+                    const r = await requestDesktopClearWorkspace({
+                      gatewayHost: gw,
+                      token: state.settings?.token?.trim() ?? "",
+                    });
+                    if (!r.ok) {
+                      state.aboutClearWorkspaceError = [r.message, r.detail].filter(Boolean).join(" — ");
+                      return;
+                    }
+                    window.alert(r.message ?? "已清空默认工作区。");
+                  } catch (e) {
+                    state.aboutClearWorkspaceError = e instanceof Error ? e.message : String(e);
+                  } finally {
+                    state.aboutClearWorkspaceLoading = false;
+                  }
+                },
                 uninstallModalOpen: state.aboutUninstallModalOpen,
                 uninstallMode: state.aboutUninstallMode,
                 uninstallLoading: state.aboutUninstallLoading,

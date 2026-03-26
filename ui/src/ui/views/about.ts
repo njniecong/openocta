@@ -5,6 +5,9 @@ export type AboutUninstallMode = "program" | "full";
 
 export type AboutViewProps = {
   basePath: string;
+  clearWorkspaceLoading: boolean;
+  clearWorkspaceError: string | null;
+  onClearWorkspace: () => void | Promise<void>;
   uninstallModalOpen: boolean;
   uninstallMode: AboutUninstallMode;
   uninstallLoading: boolean;
@@ -40,6 +43,26 @@ export function renderAbout(props: AboutViewProps) {
         <li>二次开发后的衍生作品必须遵守 GPLv3 的开源义务。</li>
       </ul>
       <p>如需商业授权，请联系：<strong>zhanghp@databuff.com</strong>。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">清理文稿与数据</div>
+      <p class="muted">
+        删除<strong>默认工作区</strong>目录下的全部文件与文件夹（通常为
+        <code>~/.openocta/workspace</code>；Windows 为 <code>%APPDATA%\openocta\workspace</code>）。不会删除配置文件与其它状态目录内容。需本机网关处理该请求。
+      </p>
+      ${props.clearWorkspaceError
+        ? html`<p class="about-uninstall-api-error" role="alert">${props.clearWorkspaceError}</p>`
+        : nothing}
+      <button
+        type="button"
+        class="btn btn--danger-outline"
+        ?disabled=${props.clearWorkspaceLoading}
+        @click=${props.onClearWorkspace}
+      >
+        <span class="btn__icon" aria-hidden="true">${icons.folder}</span>
+        ${props.clearWorkspaceLoading ? html`<span>正在清理…</span>` : html`<span>清理文稿与数据</span>`}
+      </button>
     </div>
 
     <div class="card">
@@ -145,6 +168,5 @@ export function renderAbout(props: AboutViewProps) {
             </div>
           `
         : nothing}
-    </div>
   `;
 }

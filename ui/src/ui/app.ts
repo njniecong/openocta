@@ -479,6 +479,8 @@ export class OpenClawApp extends LitElement {
   @state() aboutUninstallMode: "program" | "full" = "program";
   @state() aboutUninstallLoading = false;
   @state() aboutUninstallError: string | null = null;
+  @state() aboutClearWorkspaceLoading = false;
+  @state() aboutClearWorkspaceError: string | null = null;
 
   @state() debugLoading = false;
   @state() debugStatus: StatusSummary | null = null;
