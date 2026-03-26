@@ -40,10 +40,7 @@
   }
 }
 
-.shell--nav-collapsed {
-  grid-template-columns: 0px minmax(0, 1fr);
-}
-
+.shell--nav-collapsed,
 .shell--chat.shell--nav-collapsed {
   grid-template-columns: 56px minmax(0, 1fr);
 }
@@ -120,6 +117,7 @@
   scrollbar-width: none;
 }
 
+.nav__footer,
 .nav--massage__footer {
   height: 48px;
   padding: 0 16px;
@@ -128,6 +126,7 @@
   flex-shrink: 0;
 }
 
+.nav__toggle,
 .session-sidebar__toggle {
   width: 24px;
   height: 24px;
@@ -141,10 +140,12 @@
   cursor: pointer;
 }
 
+.nav__toggle:hover,
 .session-sidebar__toggle:hover {
   color: var(--text-primary);
 }
 
+.nav__toggle-icon,
 .session-sidebar__toggle-icon {
   width: 24px;
   height: 24px;
@@ -154,6 +155,7 @@
   transition: color var(--duration-fast) ease, transform var(--duration-fast) ease;
 }
 
+.nav__toggle-icon svg,
 .session-sidebar__toggle-icon svg {
   width: 18px;
   height: 18px;
@@ -164,10 +166,12 @@
   stroke-linejoin: round;
 }
 
+.nav__toggle-icon--collapse,
 .session-sidebar__toggle-icon--collapse {
   transform: rotate(90deg);
 }
 
+.nav__toggle-icon--expand,
 .session-sidebar__toggle-icon--expand {
   transform: rotate(-90deg);
 }
@@ -350,6 +354,23 @@
   overflow: hidden;
 }
 
+.nav--grouped {
+  padding: 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nav-group-list {
+  padding: 0 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
 .nav--massage.nav--collapsed {
   width: 56px;
   min-width: 56px;
@@ -457,7 +478,7 @@
 
 /* Nav groups */
 .nav-group {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   display: grid;
 }
 
@@ -486,6 +507,10 @@
   background: transparent;
   border: none;
   text-align: left;
+}
+
+.nav-label--static {
+  cursor: default;
 }
 
 /* Nav items */
@@ -543,6 +568,19 @@ button.nav-item {
 .nav-item__text {
   font-size: 13px;
   white-space: nowrap;
+}
+
+.nav:not(.nav--massage).nav--collapsed .nav-label.nav-label--static {
+  display: none;
+}
+
+.nav:not(.nav--massage).nav--collapsed .nav-item {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.nav:not(.nav--massage).nav--collapsed .nav-item__text {
+  display: none;
 }
 
 .nav-item:hover {

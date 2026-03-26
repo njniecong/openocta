@@ -227,7 +227,6 @@ export function renderApp(state: AppViewState) {
   const isScheduledTasks =
     state.tab === "scheduledTasks" || state.tab === "cronHistory" || state.tab === "cron";
   const isMessagePage = state.tab === "message";
-  const isMessageNavCollapsed = isMessagePage && state.settings.navCollapsed;
   const isCatalogArea =
     state.tab === "employeeMarket" ||
     state.tab === "skillLibrary" ||
@@ -246,8 +245,35 @@ export function renderApp(state: AppViewState) {
     state.tab === "sandbox" ||
     state.tab === "llmTrace" ||
     state.tab === "aboutUs";
+  const isCollapsibleNavPage = isMessagePage || isScheduledTasks || isConfigArea;
+  const isSideNavCollapsed = isCollapsibleNavPage && state.settings.navCollapsed;
+  const renderNavCollapseFooter = html`
+    <div class="nav__footer">
+      <button
+        class="nav__toggle"
+        type="button"
+        title=${state.settings.navCollapsed ? "展开侧栏" : "收起侧栏"}
+        aria-label=${state.settings.navCollapsed ? "展开侧栏" : "收起侧栏"}
+        aria-expanded=${String(!state.settings.navCollapsed)}
+        @click=${() =>
+          state.applySettings({
+            ...state.settings,
+            navCollapsed: !state.settings.navCollapsed,
+          })}
+      >
+        <span
+          class="nav__toggle-icon ${state.settings.navCollapsed
+            ? "nav__toggle-icon--expand"
+            : "nav__toggle-icon--collapse"}"
+          aria-hidden="true"
+        >
+          ${icons.arrowDown}
+        </span>
+      </button>
+    </div>
+  `;
   return html`
-    <div class="shell ${isChat ? "shell--chat" : ""} ${isCatalogArea ? "shell--catalog" : ""} ${state.tab === "tutorials" ? "shell--tutorials" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${isMessageNavCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
+    <div class="shell ${isChat ? "shell--chat" : ""} ${isCatalogArea ? "shell--catalog" : ""} ${state.tab === "tutorials" ? "shell--tutorials" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${isSideNavCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
       <header class="topbar">
         <div class="topbar-left">
           <div class="brand">
@@ -332,7 +358,7 @@ export function renderApp(state: AppViewState) {
       </header>
       ${state.tab === "tutorials"
         ? nothing
-        : html`<aside class="nav ${isCatalogArea ? "nav--catalog" : ""} ${isMessagePage ? "nav--massage" : ""} ${isMessageNavCollapsed ? "nav--collapsed" : ""}">
+        : html`<aside class="nav ${isCatalogArea ? "nav--catalog" : ""} ${isMessagePage ? "nav--massage" : ""} ${isScheduledTasks || isConfigArea ? "nav--grouped" : ""} ${isSideNavCollapsed ? "nav--collapsed" : ""}">
         ${
           isMessagePage
             ? html`
@@ -482,70 +508,76 @@ export function renderApp(state: AppViewState) {
               `
             : isScheduledTasks
               ? html`
-                  <div class="nav-group">
-                    <button class="nav-label" type="button">
-                      <span class="nav-label__text">定时任务</span>
-                    </button>
-                    <div class="nav-group__items">
-                      ${renderTab(state, "scheduledTasks")}
-                      ${renderTab(state, "cronHistory")}
+                  <div class="nav-group-list">
+                    <div class="nav-group">
+                      <button class="nav-label nav-label--static" type="button">
+                        <span class="nav-label__text">定时任务</span>
+                      </button>
+                      <div class="nav-group__items">
+                        ${renderTab(state, "scheduledTasks")}
+                        ${renderTab(state, "cronHistory")}
+                      </div>
                     </div>
                   </div>
+                  ${renderNavCollapseFooter}
                 `
               : isConfigArea
                 ? html`
-                    <div class="nav-group">
-                      <button class="nav-label" type="button">
-                        <span class="nav-label__text">控制</span>
-                      </button>
-                      <div class="nav-group__items">
-                        ${renderTab(state, "overview")}
-                        ${renderTab(state, "channels")}
-                        ${renderTab(state, "sessions")}
-                        ${renderTab(state, "usage")}
-                      </div>
-                    </div>
-                    <div class="nav-group">
-                      <button class="nav-label" type="button">
-                        <span class="nav-label__text">Agent</span>
-                      </button>
-                      <div class="nav-group__items">
-                        ${renderTab(state, "models")}
-                        ${renderTab(state, "sandbox")}
-                        ${renderTab(state, "llmTrace")}
-                      </div>
-                    </div>
-                    <div class="nav-group">
-                      <button class="nav-label" type="button">
-                        <span class="nav-label__text">配置</span>
-                      </button>
-                      <div class="nav-group__items">
-                        ${renderTab(state, "config")}
-                        ${renderTab(state, "envVars")}
-                        ${renderTab(state, "logs")}
-                      </div>
-                    </div>
-                    <div class="nav-group">
-                      <button class="nav-label" type="button">
-                        <span class="nav-label__text">资源</span>
-                      </button>
-                      <div class="nav-group__items">
-                        <button
-                          type="button"
-                          class="nav-item"
-                          title="在线文档（新窗口打开）"
-                          @click=${() =>
-                            void openExternalUrl("https://www.openocta.com/docs", {
-                              gatewayHost: state.settings.gatewayUrl,
-                              gatewayToken: state.settings.token,
-                            })}
-                        >
-                          <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
-                          <span class="nav-item__text">在线文档</span>
+                    <div class="nav-group-list">
+                      <div class="nav-group">
+                        <button class="nav-label nav-label--static" type="button">
+                          <span class="nav-label__text">控制</span>
                         </button>
-                        ${renderTab(state, "aboutUs")}
+                        <div class="nav-group__items">
+                          ${renderTab(state, "overview")}
+                          ${renderTab(state, "channels")}
+                          ${renderTab(state, "sessions")}
+                          ${renderTab(state, "usage")}
+                        </div>
+                      </div>
+                      <div class="nav-group">
+                        <button class="nav-label nav-label--static" type="button">
+                          <span class="nav-label__text">Agent</span>
+                        </button>
+                        <div class="nav-group__items">
+                          ${renderTab(state, "models")}
+                          ${renderTab(state, "sandbox")}
+                          ${renderTab(state, "llmTrace")}
+                        </div>
+                      </div>
+                      <div class="nav-group">
+                        <button class="nav-label nav-label--static" type="button">
+                          <span class="nav-label__text">配置</span>
+                        </button>
+                        <div class="nav-group__items">
+                          ${renderTab(state, "config")}
+                          ${renderTab(state, "envVars")}
+                          ${renderTab(state, "logs")}
+                        </div>
+                      </div>
+                      <div class="nav-group">
+                        <button class="nav-label nav-label--static" type="button">
+                          <span class="nav-label__text">资源</span>
+                        </button>
+                        <div class="nav-group__items">
+                          <button
+                            type="button"
+                            class="nav-item"
+                            title="在线文档（新窗口打开）"
+                            @click=${() =>
+                              void openExternalUrl("https://www.openocta.com/docs", {
+                                gatewayHost: state.settings.gatewayUrl,
+                                gatewayToken: state.settings.token,
+                              })}
+                          >
+                            <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
+                            <span class="nav-item__text">在线文档</span>
+                          </button>
+                          ${renderTab(state, "aboutUs")}
+                        </div>
                       </div>
                     </div>
+                    ${renderNavCollapseFooter}
                   `
               : state.tab === "employeeMarket"
                 ? (() => {
