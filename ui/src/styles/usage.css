@@ -996,7 +996,6 @@ details.usage-filter-select summary::-webkit-details-marker {
   flex: 0 0 70px;
   text-align: right;
   font-size: 12px;
-  font-family: var(--font-mono);
   color: var(--text-muted);
 }
 .session-bar-actions {
@@ -1275,12 +1274,10 @@ details.usage-filter-select summary::-webkit-details-marker {
   border-bottom: none;
 }
 .context-list-item .mono {
-  font-family: var(--font-mono);
   color: var(--text-regular);
 }
 .context-list-item .muted {
   color: var(--text-muted);
-  font-family: var(--font-mono);
 }
 
 /* ===== NO CONTEXT NOTE ===== */
@@ -1425,6 +1422,7 @@ details.usage-filter-select summary::-webkit-details-marker {
   margin-bottom: 8px;
 }
 .sessions-card .session-bars {
+  max-height: 280px;
   background: var(--bg);
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -1561,7 +1559,6 @@ details.usage-filter-select summary::-webkit-details-marker {
 }
 .session-detail-stats strong {
   color: var(--text-regular);
-  font-family: var(--font-mono);
 }
 .session-detail-content {
   padding: 12px;
