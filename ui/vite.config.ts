@@ -31,7 +31,12 @@ export default defineConfig(() => {
       outDir: path.resolve(here, "../src/embed/frontend"),
       emptyOutDir: true,
       sourcemap: true,
+      target: "baseline-widely-available",
     },
+    css: {
+      transformer: "postcss",
+    },
+    cssTarget: "baseline-widely-available",
     server: {
       host: true,
       port: 5173,
