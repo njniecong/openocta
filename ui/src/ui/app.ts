@@ -267,6 +267,7 @@ export class OpenClawApp extends LitElement implements NativeDialogInvoker {
   @state() approvalBannerBaselineIds: string[] = [];
   @state() approvalBannerPendingCount = 0;
   @state() modelsSelectedProvider: string | null = null;
+  @state() modelsProviderSearchQuery = "";
   @state() modelsViewMode: "list" | "card" = "card";
   @state() modelsFormDirty = false;
   @state() modelsAddProviderModalOpen = false;

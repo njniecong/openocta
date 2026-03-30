@@ -39,6 +39,7 @@ var builtInProviders = map[string]builtInProvider{
 	"mistral":           {"https://api.mistral.ai/v1", false, "MISTRAL_API_KEY", "mistral-large-latest"},
 	"groq":              {"https://api.groq.com/openai/v1", false, "GROQ_API_KEY", "llama-3.3-70b-versatile"},
 	"cerebras":          {"https://api.cerebras.ai/v1", false, "CEREBRAS_API_KEY", "llama-4-scout-17b-16e-instruct"},
+	"deepseek":          {"https://api.deepseek.com/v1", false, "DEEPSEEK_API_KEY", "deepseek-chat"},
 	"ollama":            {"http://127.0.0.1:11434/v1", false, "OLLAMA_API_KEY", "llama3.3"},
 	"vllm":              {"http://127.0.0.1:8000/v1", false, "VLLM_API_KEY", ""},
 	"vercel-ai-gateway": {"https://api.vercel.ai/v1", false, "AI_GATEWAY_API_KEY", ""},

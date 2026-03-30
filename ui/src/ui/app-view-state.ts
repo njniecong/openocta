@@ -280,6 +280,7 @@ export type AppViewState = {
   approvalBannerPendingCount: number;
   // Models
   modelsSelectedProvider: string | null;
+  modelsProviderSearchQuery: string;
   modelsViewMode: "list" | "card";
   modelsFormDirty: boolean;
   modelsAddProviderModalOpen: boolean;

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/stellarlinkco/agentsdk-go/pkg/middleware"
 
@@ -26,6 +27,8 @@ import (
 // Runtime wraps agentsdk-go Runtime for OPENOCTA.
 type Runtime struct {
 	rt *api.Runtime
+	// agentRunBudget applies to Run when ctx has no deadline (OPENOCTA_AGENT_RUN_TIMEOUT / Options.AgentRunTimeout / DefaultAgentRunTimeout).
+	agentRunBudget time.Duration
 }
 
 // New creates a new Runtime with the given options.
@@ -267,11 +270,13 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	//	ServiceName: "openclaw",
 	//	Endpoint:    "http://192.168.50.254:14318",
 	//}
+	applyAPITimeouts(&apiOpts, opts)
+	runBudget := resolveAgentRunTimeout(opts)
 	rt, err := api.New(ctx, apiOpts)
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{rt: rt}, nil
+	return &Runtime{rt: rt, agentRunBudget: runBudget}, nil
 }
 
 // Options configures the Runtime.
@@ -309,6 +314,12 @@ type Options struct {
 	SystemPromptOverrides string
 	// Skylark sets api.Options.Skylark directly; when nil, mergeSkylarkOptions uses config agents.defaults.skylark and OPENOCTA_SKYLARK (default on).
 	Skylark *api.SkylarkOptions
+	// AgentRunTimeout bounds Run/RunStream when ctx has no deadline; zero uses OPENOCTA_AGENT_RUN_TIMEOUT or DefaultAgentRunTimeout (10m). See EnvAgentRunTimeout.
+	AgentRunTimeout time.Duration
+	// MiddlewareTimeout is api.Options.MiddlewareTimeout (per middleware stage); zero uses OPENOCTA_MIDDLEWARE_TIMEOUT if set.
+	MiddlewareTimeout time.Duration
+	// HookTimeout is api.Options.HookTimeout; zero uses OPENOCTA_HOOK_TIMEOUT if set, otherwise agentsdk hook default.
+	HookTimeout time.Duration
 }
 
 // mergeSkylarkOptions resolves api.SkylarkOptions: explicit opts.Skylark wins; then OPENOCTA_SKYLARK; then agents.defaults.skylark; default enabled (see agentsdk-go docs/skylark.md).
@@ -516,10 +527,14 @@ func DefaultModelFactory() api.ModelFactory {
 
 // Run executes a single request.
 func (r *Runtime) Run(ctx context.Context, req api.Request) (*api.Response, error) {
+	ctx, cancel := wrapRunContext(ctx, r.agentRunBudget)
+	defer cancel()
 	return r.rt.Run(ctx, req)
 }
 
 // RunStream executes with streaming events.
+// Streaming runs keep the passed ctx (caller should set a deadline, e.g. gateway chat). We do not wrap with
+// agentRunBudget here: defer-cancel on return would abort the SDK background goroutine immediately.
 func (r *Runtime) RunStream(ctx context.Context, req api.Request) (<-chan api.StreamEvent, error) {
 	return r.rt.RunStream(ctx, req)
 }

@@ -274,6 +274,8 @@ type Strings = {
   securityRulesAllowHint: string;
   modelsViewList: string;
   modelsViewCard: string;
+  modelsSearchPlaceholder: string;
+  modelsSearchNoMatch: string;
   modelsTableName: string;
   modelsTableModel: string;
   modelsTableBaseUrl: string;
@@ -1255,6 +1257,8 @@ const EN: Strings = {
   approvalsReason: "Reason",
   modelsViewList: "List view",
   modelsViewCard: "Card view",
+  modelsSearchPlaceholder: "Search by name…",
+  modelsSearchNoMatch: "No providers match your search.",
   modelsTableName: "Name",
   modelsTableModel: "Default Model",
   modelsTableBaseUrl: "Base URL",
@@ -2033,7 +2037,7 @@ const ZH: Strings = {
   overviewGatewayAccessSub: "控制台连接地址与认证方式。",
   overviewWebSocketUrl: "WebSocket 地址",
   overviewGatewayHost: "后端地址 (IP:端口)",
-  overviewGatewayToken: "网关令牌",
+  overviewGatewayToken: "网关令牌 (访问远程需从openocta.json中获取)",
   overviewPassword: "密码（不保存）",
   overviewDefaultSessionKey: "默认会话 Key",
   overviewConnect: "连接",
@@ -2233,6 +2237,8 @@ const ZH: Strings = {
   approvalsReason: "拒绝原因",
   modelsViewList: "列表",
   modelsViewCard: "卡片",
+  modelsSearchPlaceholder: "按名称搜索…",
+  modelsSearchNoMatch: "没有匹配的厂商。",
   modelsTableName: "名称",
   modelsTableModel: "默认模型",
   modelsTableBaseUrl: "Base URL",

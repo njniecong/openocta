@@ -34,6 +34,7 @@ export const BUILTIN_PROVIDERS: BuiltInProvider[] = [
   { id: "mistral", label: "Mistral", envKey: "MISTRAL_API_KEY", defaultModel: "mistral-large-latest", baseUrl: "https://api.mistral.ai/v1", defaultApi: "openai-completions" },
   { id: "groq", label: "Groq", envKey: "GROQ_API_KEY", defaultModel: "llama-3.3-70b-versatile", baseUrl: "https://api.groq.com/openai/v1", defaultApi: "openai-completions" },
   { id: "cerebras", label: "Cerebras", envKey: "CEREBRAS_API_KEY", defaultModel: "llama-4-scout-17b-16e-instruct", baseUrl: "https://api.cerebras.ai/v1", defaultApi: "openai-completions" },
+  { id: "deepseek", label: "DeepSeek", envKey: "DEEPSEEK_API_KEY", defaultModel: "deepseek-chat", baseUrl: "https://api.deepseek.com/v1", defaultApi: "openai-completions" },
   { id: "ollama", label: "Ollama", envKey: "OLLAMA_API_KEY", defaultModel: "llama3.3", baseUrl: "http://127.0.0.1:11434/v1", defaultApi: "openai-completions" },
   { id: "vllm", label: "vLLM", envKey: "VLLM_API_KEY", defaultModel: "", baseUrl: "http://127.0.0.1:8000/v1", defaultApi: "openai-completions" },
   { id: "vercel-ai-gateway", label: "Vercel AI Gateway", envKey: "AI_GATEWAY_API_KEY", defaultModel: "", baseUrl: "https://api.vercel.ai/v1", defaultApi: "openai-completions" },

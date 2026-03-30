@@ -104,7 +104,7 @@ func (s *Server) siteAPIBaseURL() string {
 	raw := strings.TrimSpace(os.Getenv(siteAPIEnvKey))
 	if raw == "" {
 		// Back-compat / dev default: local swagger host.
-		return "http://localhost:9889"
+		return ""
 	}
 	return strings.TrimRight(raw, "/")
 }

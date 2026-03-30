@@ -56,6 +56,7 @@ func (WindowsCmdTool) Execute(ctx context.Context, params map[string]interface{}
 	}
 
 	cmd := exec.Command("cmd", "/c", cmdStr)
+	applyExecNoWindow(cmd)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

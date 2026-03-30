@@ -1019,11 +1019,21 @@ func ChatSendHandler(opts HandlerOpts) error {
 	//	deliver = d
 	//}
 	thinking, _ := opts.Params["thinking"].(string)
-	timeoutMs := 600000 // default 600 seconds， 默认10分钟。
+	timeoutMs := 0
 	if t, ok := opts.Params["timeoutMs"].(float64); ok && t > 0 {
 		timeoutMs = int(t)
 	} else if t, ok := opts.Params["timeoutMs"].(int); ok && t > 0 {
 		timeoutMs = t
+	} else if t, ok := opts.Params["timeoutMs"].(int64); ok && t > 0 {
+		timeoutMs = int(t)
+	}
+	if timeoutMs <= 0 {
+		cfg := loadConfigFromContext(opts.Context)
+		if d := runtime.DefaultAgentRunDuration(os.Getenv, cfg); d > 0 {
+			timeoutMs = int(d / time.Millisecond)
+		} else {
+			timeoutMs = 600000 // OPENOCTA_AGENT_RUN_TIMEOUT=0 等：回退 10 分钟
+		}
 	}
 
 	// Send acknowledgment immediately

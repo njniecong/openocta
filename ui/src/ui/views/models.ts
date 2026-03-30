@@ -1,6 +1,11 @@
 import { html, nothing } from "lit";
 import { t } from "../strings.js";
-import { BUILTIN_PROVIDERS, formatModelRef, parseModelRef } from "./models-builtin.ts";
+import {
+  BUILTIN_PROVIDERS,
+  formatModelRef,
+  parseModelRef,
+  type BuiltInProvider,
+} from "./models-builtin.ts";
 
 export type ModelProvider = {
   baseUrl?: string;
@@ -34,6 +39,8 @@ export type ModelsProps = {
   loading: boolean;
   saving: boolean;
   selectedProvider: string | null;
+  /** Filter built-in + custom provider rows by display name / id (case-insensitive substring). */
+  providerSearchQuery: string;
   viewMode: "list" | "card";
   formDirty: boolean;
   addProviderModalOpen: boolean;
@@ -49,6 +56,7 @@ export type ModelsProps = {
   onAddProviderFormChange: (form: Partial<AddProviderForm>) => void;
   onAddProviderSubmit: () => void;
   onSelect: (key: string | null) => void;
+  onProviderSearchChange: (query: string) => void;
   onViewModeChange: (mode: "list" | "card") => void;
   onPatch: (key: string, patch: Partial<ModelProvider>) => void;
   onAddModel: (providerKey: string) => void;
@@ -71,6 +79,24 @@ function getProviderDisplayName(providerKey: string, provider?: ModelProvider): 
   return provider?.displayName ?? providerKey;
 }
 
+function providerMatchesSearch(
+  providerKey: string,
+  provider: ModelProvider | undefined,
+  builtin: BuiltInProvider | undefined,
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (providerKey.toLowerCase().includes(q)) return true;
+  if (builtin) {
+    if (builtin.label.toLowerCase().includes(q) || builtin.id.toLowerCase().includes(q)) {
+      return true;
+    }
+  }
+  const dn = (provider?.displayName ?? "").toLowerCase();
+  return dn.includes(q);
+}
+
 function getModelsForProvider(providerKey: string, provider?: ModelProvider): Array<{ id: string; name?: string }> {
   const builtin = BUILTIN_PROVIDERS.find((p) => p.id === providerKey);
   const configured = provider?.models ?? [];
@@ -81,6 +107,16 @@ function getModelsForProvider(providerKey: string, provider?: ModelProvider): Ar
 
 export function renderModels(props: ModelsProps) {
   const current = parseModelRef(props.defaultModelRef);
+  const searchQ = props.providerSearchQuery ?? "";
+  const filteredBuiltin = BUILTIN_PROVIDERS.filter((p) =>
+    providerMatchesSearch(p.id, props.providers?.[p.id], p, searchQ),
+  );
+  const filteredCustom = Object.entries(props.providers ?? {}).filter(([key, prov]) => {
+    if (BUILTIN_PROVIDERS.some((b) => b.id === key)) return false;
+    return providerMatchesSearch(key, prov, undefined, searchQ);
+  });
+  const searchActive = searchQ.trim().length > 0;
+  const noSearchResults = searchActive && filteredBuiltin.length === 0 && filteredCustom.length === 0;
 
   return html`
     <section class="card">
@@ -89,7 +125,35 @@ export function renderModels(props: ModelsProps) {
           <div class="card-title">${t("navTitleModels")}</div>
           <div class="card-sub">${t("subtitleModels")}</div>
         </div>
-        <div class="row" style="gap: 8px; align-items: center;">
+        <div class="row" style="gap: 8px; align-items: center; flex-wrap: wrap;">
+          <div
+            class="row"
+            style="align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; background: var(--surface-elevated, rgba(0,0,0,0.03)); max-width: 220px;"
+            title=${t("modelsSearchPlaceholder")}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="muted"
+              style="flex-shrink: 0; opacity: 0.65;"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" stroke-linecap="round" />
+            </svg>
+            <input
+              type="search"
+              .value=${props.providerSearchQuery}
+              placeholder=${t("modelsSearchPlaceholder")}
+              autocomplete="off"
+              style="border: none; background: transparent; flex: 1; min-width: 0; font-size: 13px; padding: 6px 0; outline: none;"
+              @input=${(e: Event) => props.onProviderSearchChange((e.target as HTMLInputElement).value)}
+            />
+          </div>
           <div class="row" style="gap: 4px;" title=${t("modelsViewList")}>
             <button
               type="button"
@@ -138,7 +202,9 @@ export function renderModels(props: ModelsProps) {
         : nothing}
 
       <div class="models-provider-list" style="margin-top: 16px;">
-        ${props.viewMode === "list"
+        ${noSearchResults
+          ? html`<p class="muted" style="margin: 12px 0 0; font-size: 14px;">${t("modelsSearchNoMatch")}</p>`
+          : props.viewMode === "list"
           ? html`
               <div class="models-table table" style="margin-top: 0;">
                 <div class="models-table-head table-head">
@@ -147,7 +213,7 @@ export function renderModels(props: ModelsProps) {
                   <div>${t("modelsTableBaseUrl")}</div>
                   <div>${t("modelsTableActions")}</div>
                 </div>
-                ${BUILTIN_PROVIDERS.map((p) => {
+                ${filteredBuiltin.map((p) => {
                   const prov = props.providers?.[p.id];
                   const hasConfig = !!prov;
                   const modelId = hasConfig ? (prov?.models?.[0]?.id ?? p.defaultModel ?? "(需指定)") : null;
@@ -208,9 +274,7 @@ export function renderModels(props: ModelsProps) {
                     </div>
                   `;
                 })}
-                ${Object.entries(props.providers ?? {})
-                  .filter(([key]) => !BUILTIN_PROVIDERS.some((p) => p.id === key))
-                  .map(
+                ${filteredCustom.map(
                     ([key, provider]) => {
                       const modelId = provider.models?.[0]?.id;
                       const canUse = !!modelId;
@@ -270,7 +334,7 @@ export function renderModels(props: ModelsProps) {
             `
           : html`
               <div class="models-card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;">
-                ${BUILTIN_PROVIDERS.map((p) => {
+                ${filteredBuiltin.map((p) => {
                   const prov = props.providers?.[p.id];
                   const hasConfig = !!prov;
                   const modelId = hasConfig ? (prov?.models?.[0]?.id ?? p.defaultModel ?? "(需指定)") : null;
@@ -338,9 +402,7 @@ export function renderModels(props: ModelsProps) {
                     </div>
                   `;
                 })}
-                ${Object.entries(props.providers ?? {})
-                  .filter(([key]) => !BUILTIN_PROVIDERS.some((p) => p.id === key))
-                  .map(
+                ${filteredCustom.map(
                     ([key, provider]) => {
                       const modelId = provider.models?.[0]?.id;
                       const canUse = !!modelId;
