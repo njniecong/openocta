@@ -5,8 +5,8 @@
 #
 # macOS Wails .dmg（arm64 + amd64）：
 # - 仅在 macOS 上可构建；设置 GORELEASER_INCLUDE_DMG=1 时运行 scripts/goreleaser-wails-dmg.sh。
-# - 推 Release 时若要把 DMG 一并上传：在 macOS runner 上执行，并合并 .goreleaser.dmg.yaml（见该文件注释）。
-# - 仅 Linux CI 时不要设 GORELEASER_INCLUDE_DMG，也不要合并 .goreleaser.dmg.yaml。
+# - release.extra_files 已包含 dist/OpenOcta*.dmg；有则上传，无则跳过。
+# - 勿使用多个 -f：GoReleaser 只认最后一个配置文件，会丢失 builds 并报「does not contain a main function」。
 
 version: 2
 project_name: openocta
@@ -102,3 +102,6 @@ release:
   gitlab:
     owner: "{{ .Env.CI_PROJECT_NAMESPACE }}"
     name: "{{ .Env.CI_PROJECT_NAME }}"
+  # Wails 打的 DMG（make wails-dmg-all）；无文件时 GoReleaser 仅跳过匹配，不报错
+  extra_files:
+    - glob: ./dist/OpenOcta*.dmg
