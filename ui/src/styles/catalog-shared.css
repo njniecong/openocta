@@ -145,7 +145,6 @@
   margin-bottom: 12px;
   border-radius: 10px;
   overflow: hidden;
-  background: var(--bg2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -295,7 +294,6 @@
 .content--catalog .emp-card__icon {
   margin-bottom: 16px;
   border-radius: 4px;
-  background: var(--bg-content);
 }
 
 .content--catalog .emp-card__actions {

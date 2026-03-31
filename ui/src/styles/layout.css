@@ -252,12 +252,12 @@
 
 .nav__toggle-icon--collapse,
 .session-sidebar__toggle-icon--collapse {
-  transform: rotate(90deg);
+  transform: rotateY(180deg);
 }
 
 .nav__toggle-icon--expand,
 .session-sidebar__toggle-icon--expand {
-  transform: rotate(-90deg);
+  transform: rotateY(0);
 }
 
 .session-item {
@@ -291,9 +291,14 @@
   color: var(--accent);
 }
 
-.session-item__icon-default svg {
-  width: 16px;
-  height: 16px;
+.session-item__icon-default {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  svg {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .session-item__icon-emp {
@@ -455,7 +460,7 @@
 
 .brand-logo img {
   display: block;
-  height: 44px;
+  height: 24px;
   width: auto;
   max-width: 160px;
   object-fit: contain;
@@ -556,6 +561,10 @@
 .nav--massage.nav--collapsed {
   width: 56px;
   min-width: 56px;
+}
+
+.nav--massage.nav--collapsed .session-search {
+  display: none;
 }
 
 .nav--massage.nav--collapsed .session-new {
@@ -740,9 +749,6 @@ button.nav-item {
 .nav-item__icon svg {
   width: 16px;
   height: 16px;
-  stroke: var(--text-placeholder);
-  fill: none;
-  stroke-width: 1.5px;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -765,6 +771,10 @@ button.nav-item {
   display: none;
 }
 
+.nav-item .nav-item__icon {
+  color: var(--text-placeholder);
+}
+
 .nav-item:hover {
   background: var(--bg-content);
   text-decoration: none;
@@ -780,11 +790,11 @@ button.nav-item {
   color: var(--accent);
 }
 .nav-item.active .nav-item__icon svg {
-  stroke: var(--accent);
+  color: var(--accent);
 }
 
 .top-tab--active .nav-item__icon svg {
-  stroke: var(--accent);
+  color: var(--accent);
 }
 
 /* ===========================================
@@ -1654,7 +1664,7 @@ button.nav-item {
 .top-tab {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 100%;
   padding: 0 14px;
   border: none;
