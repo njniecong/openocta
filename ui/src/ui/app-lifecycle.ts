@@ -10,7 +10,12 @@ import {
   startDebugPolling,
   stopDebugPolling,
 } from "./app-polling.ts";
-import { observeTopbar, scheduleChatScroll, scheduleLogsScroll } from "./app-scroll.ts";
+import {
+  observeTopbar,
+  resetChatScroll,
+  scheduleChatScroll,
+  scheduleLogsScroll,
+} from "./app-scroll.ts";
 import {
   applySettingsFromUrl,
   attachThemeListener,
@@ -23,6 +28,7 @@ import {
 type LifecycleHost = {
   basePath: string;
   tab: Tab;
+  sessionKey: string;
   chatHasAutoScrolled: boolean;
   chatLoading: boolean;
   chatMessages: unknown[];
@@ -68,21 +74,32 @@ export function handleDisconnected(host: LifecycleHost) {
   host.topbarObserver = null;
 }
 
+function isChatShellTab(tab: Tab): boolean {
+  return tab === "chat" || tab === "message";
+}
+
 export function handleUpdated(host: LifecycleHost, changed: Map<PropertyKey, unknown>) {
   if (
-    host.tab === "chat" &&
+    isChatShellTab(host.tab) &&
     (changed.has("chatMessages") ||
       changed.has("chatToolMessages") ||
       changed.has("chatStream") ||
       changed.has("chatLoading") ||
-      changed.has("tab"))
+      changed.has("tab") ||
+      changed.has("sessionKey"))
   ) {
     const forcedByTab = changed.has("tab");
     const forcedByLoad =
       changed.has("chatLoading") && changed.get("chatLoading") === true && !host.chatLoading;
+    const switchedSession = changed.has("sessionKey");
+    // Opening or switching a session: treat like first paint so we scroll to newest messages.
+    // Otherwise scheduleChatScroll(force) is ignored after chatHasAutoScrolled is true once.
+    if (switchedSession || forcedByLoad) {
+      resetChatScroll(host as unknown as Parameters<typeof resetChatScroll>[0]);
+    }
     scheduleChatScroll(
       host as unknown as Parameters<typeof scheduleChatScroll>[0],
-      forcedByTab || forcedByLoad || !host.chatHasAutoScrolled,
+      forcedByTab || forcedByLoad || switchedSession || !host.chatHasAutoScrolled,
     );
   }
   if (
