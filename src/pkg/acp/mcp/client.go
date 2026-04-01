@@ -43,6 +43,10 @@ func ConnectStdio(ctx context.Context, key string, command string, args []string
 	for k, v := range env {
 		envMap[k] = v
 	}
+	// 在合并 env 之后、envToSlice 之前，保证子进程使用 UTF-8 locale
+	if _, ok := envMap["LANG"]; !ok || envMap["LANG"] == "" || envMap["LANG"] == "C" {
+		envMap["LANG"] = "en_US.UTF-8"
+	}
 
 	cmd.Env = envToSlice(envMap)
 	var stderrBuf bytes.Buffer
