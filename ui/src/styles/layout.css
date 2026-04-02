@@ -586,6 +586,10 @@
   display: none;
 }
 
+.nav--massage.nav--collapsed .session-item__overflow {
+  display: none;
+}
+
 /* Beta badge for nav items */
 .nav-badge {
   display: inline-flex;
