@@ -1927,6 +1927,7 @@ button.nav-item {
   color: var(--text-regular);
   font-size: 14px;
   line-height: 24px;
+  white-space: pre-line;
 }
 
 .emp-detail-modal .btn.primary {

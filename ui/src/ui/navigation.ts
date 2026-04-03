@@ -19,6 +19,7 @@ export type Tab =
   | "employeeMarket"
   | "skillLibrary"
   | "toolLibrary"
+  | "modelLibrary"
   | "tutorials"
   | "aboutUs"
   | "community"
@@ -50,6 +51,7 @@ const TAB_PATHS: Record<Tab, string> = {
   employeeMarket: "/employee-market",
   skillLibrary: "/skill-library",
   toolLibrary: "/tool-library",
+  modelLibrary: "/model-library",
   tutorials: "/tutorials",
   aboutUs: "/about-us",
   community: "/community",
@@ -188,6 +190,8 @@ export function iconForTab(tab: Tab, active = false): IconName {
       return "zap";
     case "toolLibrary":
       return "wrench";
+    case "modelLibrary":
+      return "modelCube";
     case "tutorials":
       return "book";
     case "aboutUs":
@@ -253,6 +257,8 @@ export function titleForTab(tab: Tab) {
       return "技能库";
     case "toolLibrary":
       return "工具库";
+    case "modelLibrary":
+      return "模型库";
     case "tutorials":
       return "教程";
     case "aboutUs":
@@ -317,6 +323,8 @@ export function subtitleForTab(tab: Tab) {
     case "skillLibrary":
       return "";
     case "toolLibrary":
+      return "";
+    case "modelLibrary":
       return "";
     case "tutorials":
       return "";

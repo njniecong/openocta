@@ -283,7 +283,7 @@ export async function refreshActiveTab(host: SettingsHost) {
     await loadConfig(host as unknown as Parameters<typeof loadConfig>[0]);
     syncLlmTraceFromConfig(host as unknown as Parameters<typeof syncLlmTraceFromConfig>[0]);
   }
-  if (host.tab === "envVars" || host.tab === "models") {
+  if (host.tab === "envVars" || host.tab === "models" || host.tab === "modelLibrary") {
     await loadConfig(host as unknown as Parameters<typeof loadConfig>[0]);
     syncLlmTraceFromConfig(host as unknown as Parameters<typeof syncLlmTraceFromConfig>[0]);
   }

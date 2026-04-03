@@ -31,6 +31,7 @@ describe("iconForTab", () => {
     expect(iconForTab("employeeMarket")).toBe("users");
     expect(iconForTab("skillLibrary")).toBe("zap");
     expect(iconForTab("toolLibrary")).toBe("wrench");
+    expect(iconForTab("modelLibrary")).toBe("modelCube");
     expect(iconForTab("tutorials")).toBe("book");
     expect(iconForTab("community")).toBe("globe");
     expect(iconForTab("chat")).toBe("messageSquare");
@@ -58,6 +59,7 @@ describe("iconForTab", () => {
     expect(iconForTab("employeeMarket", true)).toBe("usersActive");
     expect(iconForTab("skillLibrary", true)).toBe("zapActive");
     expect(iconForTab("toolLibrary", true)).toBe("wrenchActive");
+    expect(iconForTab("modelLibrary", true)).toBe("modelCube");
     expect(iconForTab("tutorials", true)).toBe("bookActive");
     expect(iconForTab("community", true)).toBe("globeActive");
     expect(iconForTab("config", true)).toBe("settingsActive");
@@ -148,6 +150,7 @@ describe("pathForTab", () => {
   it("returns correct path without base", () => {
     expect(pathForTab("chat")).toBe("/chat");
     expect(pathForTab("overview")).toBe("/overview");
+    expect(pathForTab("modelLibrary")).toBe("/model-library");
   });
 
   it("prepends base path", () => {
@@ -161,6 +164,7 @@ describe("tabFromPath", () => {
     expect(tabFromPath("/chat")).toBe("chat");
     expect(tabFromPath("/overview")).toBe("overview");
     expect(tabFromPath("/sessions")).toBe("sessions");
+    expect(tabFromPath("/model-library")).toBe("modelLibrary");
   });
 
   it("returns message for root path", () => {

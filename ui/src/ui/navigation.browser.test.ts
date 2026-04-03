@@ -97,6 +97,7 @@ describe("control UI routing", () => {
       ["/employee-market", "员工市场"],
       ["/skill-library", "技能库"],
       ["/tool-library", "工具库"],
+      ["/model-library", "模型"],
       ["/tutorials", "教程"],
     ] as const;
 
@@ -109,6 +110,21 @@ describe("control UI routing", () => {
       expect(activeTab?.textContent).toContain(expected);
       expect(window.location.pathname).toBe(pathname);
     }
+  });
+
+  it("renders the model tab before tutorials and removes the community tab", async () => {
+    const app = mountApp("/message");
+    await app.updateComplete;
+
+    const labels = Array.from(app.querySelectorAll(".top-tab .top-tab__label")).map((node) =>
+      node.textContent?.trim() ?? "",
+    );
+
+    expect(labels).toContain("模型");
+    expect(labels).not.toContain("社区");
+    expect(labels.indexOf("模型")).toBeGreaterThan(-1);
+    expect(labels.indexOf("教程")).toBeGreaterThan(-1);
+    expect(labels.indexOf("模型")).toBeLessThan(labels.indexOf("教程"));
   });
 
   it("auto-scrolls chat history to the latest message", async () => {

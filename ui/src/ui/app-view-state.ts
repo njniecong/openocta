@@ -300,6 +300,8 @@ export type AppViewState = {
   modelsUseModelModalOpen: boolean;
   modelsUseModelModalProvider: string | null;
   modelsSaveError: string | null;
+  modelLibraryCategory: "__all__" | "public" | "local";
+  modelLibrarySelectedProvider: string | null;
   // Digital employees
   digitalEmployeesLoading: boolean;
   digitalEmployeesError: string | null;

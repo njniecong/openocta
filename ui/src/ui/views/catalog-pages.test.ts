@@ -27,6 +27,12 @@ import {
   renderToolLibrary,
   type ToolLibraryProps,
 } from "./tool-library.ts";
+import {
+  computeModelLibraryCategories,
+  getModelLibraryEntries,
+  renderModelLibrary,
+  type ModelLibraryProps,
+} from "./model-library.ts";
 import { renderTutorials, type TutorialsProps } from "./tutorials.ts";
 
 function renderIntoContainer(result: unknown, container: HTMLElement) {
@@ -165,6 +171,81 @@ function tutorialProps(overrides: Partial<TutorialsProps> = {}): TutorialsProps 
     onLessonClick: () => undefined,
     onPlayingClose: () => undefined,
     onRefresh: () => undefined,
+    ...overrides,
+  };
+}
+
+function modelLibraryProps(overrides: Partial<ModelLibraryProps> = {}): ModelLibraryProps {
+  return {
+    providers: {
+      openai: {
+        models: [{ id: "gpt-4", name: "GPT-4" }],
+      },
+      "custom-public": {
+        displayName: "Public Gateway",
+        baseUrl: "https://models.example.com/v1",
+        models: [{ id: "public-model", name: "Public Model" }],
+      },
+      "custom-local": {
+        displayName: "Local Gateway",
+        baseUrl: "http://127.0.0.1:11434/v1",
+        models: [{ id: "local-model", name: "Local Model" }],
+      },
+      "custom-invalid": {
+        displayName: "Broken Provider",
+        baseUrl: "not-a-url",
+        models: [{ id: "invalid-model", name: "Invalid Model" }],
+      },
+    },
+    modelEnv: {},
+    defaultModelRef: null,
+    loading: false,
+    saving: false,
+    selectedCategory: "__all__",
+    selectedProvider: null,
+    providerSearchQuery: "",
+    viewMode: "card",
+    formDirty: false,
+    addProviderModalOpen: false,
+    addProviderForm: {
+      providerId: "",
+      displayName: "",
+      baseUrl: "",
+      apiKey: "",
+      apiKeyPrefix: "",
+    },
+    addModelModalOpen: false,
+    addModelForm: {
+      modelId: "",
+      modelName: "",
+      contextWindow: "",
+      maxTokens: "",
+    },
+    useModelModalOpen: false,
+    useModelModalProvider: null,
+    saveError: null,
+    onRefresh: () => undefined,
+    onAddProvider: () => undefined,
+    onAddProviderModalClose: () => undefined,
+    onAddProviderFormChange: () => undefined,
+    onAddProviderSubmit: () => undefined,
+    onSelect: () => undefined,
+    onProviderSearchChange: () => undefined,
+    onViewModeChange: () => undefined,
+    onPatch: () => undefined,
+    onAddModel: () => undefined,
+    onAddModelModalClose: () => undefined,
+    onAddModelFormChange: () => undefined,
+    onAddModelSubmit: () => undefined,
+    onRemoveModel: () => undefined,
+    onPatchModel: () => undefined,
+    onPatchModelEnv: () => undefined,
+    onSave: () => undefined,
+    onCancel: () => undefined,
+    onUseModelClick: () => undefined,
+    onUseModelModalClose: () => undefined,
+    onUseModel: () => undefined,
+    onCancelUse: () => undefined,
     ...overrides,
   };
 }
@@ -641,6 +722,79 @@ describe("catalog pages", () => {
 
     expect(container.querySelector(".emp-main > .emp-main__body > .emp-toolbar__actions")).toBeNull();
     expect(container.textContent).toContain("加载失败");
+  });
+
+  it("renders model library with catalog layout and no installed section", () => {
+    const container = document.createElement("div");
+    const onSelect = vi.fn();
+    const onRefresh = vi.fn();
+    const onAddProvider = vi.fn();
+
+    renderIntoContainer(
+      renderModelLibrary(
+        modelLibraryProps({
+          defaultModelRef: "custom-public/public-model",
+          onSelect,
+          onRefresh,
+          onAddProvider,
+        }),
+      ),
+      container,
+    );
+
+    const actionButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(".emp-main > .emp-main__body > .emp-toolbar__actions button"),
+    );
+
+    expect(container.querySelector(".emp-main > .emp-main__body > .emp-toolbar__actions")).not.toBeNull();
+    expect(actionButtons.map((button) => button.textContent?.trim())).toEqual(["刷新", "添加"]);
+    expect(container.textContent).not.toContain("已安装");
+    expect(container.textContent).toContain("公有模型");
+    expect(container.textContent).toContain("本地模型");
+    expect(container.querySelectorAll(".emp-card__actions button")).toHaveLength(0);
+    expect(container.querySelector(".market-card-chip--state")?.textContent).toContain("默认模型");
+
+    const firstCard = container.querySelector(".emp-card-btn");
+    firstCard?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    actionButtons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    actionButtons[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onAddProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies model providers into public and local buckets", () => {
+    const props = modelLibraryProps();
+    const entries = getModelLibraryEntries(props.providers, "", "openai/gpt-4");
+
+    expect(entries.find((entry) => entry.key === "openai")?.category).toBe("public");
+    expect(entries.find((entry) => entry.key === "custom-public")?.category).toBe("public");
+    expect(entries.find((entry) => entry.key === "custom-local")?.category).toBe("local");
+    expect(entries.find((entry) => entry.key === "custom-invalid")?.category).toBe("local");
+
+    const counts = computeModelLibraryCategories(props.providers, "openai");
+    expect(counts.counts.get("__all__")).toBe(1);
+    expect(counts.counts.get("public")).toBe(1);
+    expect(counts.counts.get("local")).toBe(0);
+  });
+
+  it("reuses the shared model settings panel from the library page", () => {
+    const container = document.createElement("div");
+
+    renderIntoContainer(
+      renderModelLibrary(
+        modelLibraryProps({
+          selectedProvider: "custom-local",
+          formDirty: true,
+        }),
+      ),
+      container,
+    );
+
+    expect(container.querySelector(".channel-panel")).not.toBeNull();
+    expect(container.textContent).toContain("Local Gateway");
+    expect(container.textContent).toContain("保存");
   });
 
   it("renders employee detail actions inside modal", () => {

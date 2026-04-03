@@ -91,13 +91,13 @@ export type ModelsProps = {
   onCancelUse: (provider: string) => void;
 };
 
-function getProviderDisplayName(providerKey: string, provider?: ModelProvider): string {
+export function getProviderDisplayName(providerKey: string, provider?: ModelProvider): string {
   const builtin = BUILTIN_PROVIDERS.find((p) => p.id === providerKey);
   if (builtin) return builtin.label;
   return provider?.displayName ?? providerKey;
 }
 
-function providerMatchesSearch(
+export function providerMatchesSearch(
   providerKey: string,
   provider: ModelProvider | undefined,
   builtin: BuiltInProvider | undefined,
@@ -115,7 +115,7 @@ function providerMatchesSearch(
   return dn.includes(q);
 }
 
-function getModelsForProvider(providerKey: string, provider?: ModelProvider): ModelDefinitionEntry[] {
+export function getModelsForProvider(providerKey: string, provider?: ModelProvider): ModelDefinitionEntry[] {
   const builtin = BUILTIN_PROVIDERS.find((p) => p.id === providerKey);
   const configured = provider?.models ?? [];
   if (configured.length > 0) return configured;
@@ -144,33 +144,17 @@ export function renderModels(props: ModelsProps) {
           <div class="card-sub">${t("subtitleModels")}</div>
         </div>
         <div class="row" style="gap: 8px; align-items: center; flex-wrap: wrap;">
-          <div
-            class="row"
-            style="align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; background: var(--surface-elevated, rgba(0,0,0,0.03)); max-width: 220px;"
-            title=${t("modelsSearchPlaceholder")}
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              class="muted"
-              style="flex-shrink: 0; opacity: 0.65;"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" stroke-linecap="round" />
-            </svg>
-            <input
-              type="search"
-              .value=${props.providerSearchQuery}
+          <div class="emp-search">
+            <span class="input"><input
+              style="padding-left:30px;"
+              class="emp-search__input"
+              type="text"
               placeholder=${t("modelsSearchPlaceholder")}
-              autocomplete="off"
-              style="border: none; background: transparent; flex: 1; min-width: 0; font-size: 13px; padding: 6px 0; outline: none;"
+              .value=${props.providerSearchQuery}
+              ?disabled=${props.loading}
               @input=${(e: Event) => props.onProviderSearchChange((e.target as HTMLInputElement).value)}
-            />
+            /></span>
+            <span class="emp-search__icon" aria-hidden="true">${icons.search}</span>
           </div>
           <div class="row" style="gap: 4px;" title=${t("modelsViewList")}>
             <button
@@ -489,6 +473,14 @@ export function renderModels(props: ModelsProps) {
         }
     </section>
 
+    ${renderModelsOverlays(props)}
+  `;
+}
+
+export function renderModelsOverlays(props: ModelsProps) {
+  const current = parseModelRef(props.defaultModelRef);
+
+  return html`
     ${props.addProviderModalOpen
       ? html`
           <div class="channel-panel-overlay" @click=${props.onAddProviderModalClose}>
@@ -700,7 +692,7 @@ export function renderModels(props: ModelsProps) {
                     ${icons.x}
                   </button>
                 </div>
-                <div class="channel-panel-content">
+                <div class="channel-panel-content text-primary">
                   ${props.saveError
                     ? html`<div class="callout" style="margin-bottom: 12px; color: var(--color-error, #c00);">${t("modelsEnvVarConflict")}: ${props.saveError}</div>`
                     : nothing}
@@ -764,7 +756,7 @@ export function renderModels(props: ModelsProps) {
                         <option value="openai-completions">${t("modelsApiTypeOpenAI")}</option>
                         <option value="anthropic-messages">${t("modelsApiTypeAnthropic")}</option>
                       </select></span>
-                      <p class="muted" style="font-size: 12px; margin-bottom: 0; margin-top: 6px; line-height: 1.5;">
+                      <p class="text-placeholder" style="font-size: 12px; margin-bottom: 0; margin-top: 6px; line-height: 1.5;">
                         ${t("modelsApiTypeTooltip")}
                       </p>
                     </div>
@@ -847,7 +839,6 @@ export function renderModels(props: ModelsProps) {
                                     </div>
                                   </div>
                                   <div style="margin-top: 6px; font-size: 12px;">
-                                    <strong class="muted">${t("modelsEnvVars")}</strong>
                                     ${mEnvEntries.length === 0
                                       ? html`
                                           <button
@@ -855,14 +846,14 @@ export function renderModels(props: ModelsProps) {
                                             style="font-size: 11px; margin-top: 4px;"
                                             @click=${() => props.onPatchModelEnv(props.selectedProvider!, m.id, { "__new__": "" })}
                                           >
-                                            <span class="btn__icon">${icons.plus}</span>${t("envVarsAdd")}
+                                            <span class="btn__icon">${icons.plus}</span>${t("modelsEnvVars")}
                                           </button>
                                         `
                                       : html`
                                           <div style="margin-top: 4px;">
                                             ${mEnvEntries.map(([k, v]) => html`
                                               <div class="row" style="gap: 6px; align-items: center; margin-top: 4px;">
-                                                <span class="input"><input
+                                                <span class="input small"><input
                                                   type="text"
                                                   style="flex: 1; font-size: 11px; padding: 4px;"
                                                   placeholder=${t("envVarsKeyPlaceholder")}
@@ -875,7 +866,7 @@ export function renderModels(props: ModelsProps) {
                                                     props.onPatchModelEnv(props.selectedProvider!, m.id, next);
                                                   }}
                                                 /></span>
-                                                <span class="input"><input
+                                                <span class="input small"><input
                                                   type="text"
                                                   style="flex: 1; font-size: 11px; padding: 4px;"
                                                   placeholder=${t("envVarsValuePlaceholder")}
@@ -910,7 +901,7 @@ export function renderModels(props: ModelsProps) {
                                                 props.onPatchModelEnv(props.selectedProvider!, m.id, next);
                                               }}
                                             >
-                                              <span class="btn__icon">${icons.plus}</span>${t("envVarsAdd")}
+                                              <span class="btn__icon">${icons.plus}</span>${t("modelsEnvVars")}
                                             </button>
                                           </div>
                                         `}

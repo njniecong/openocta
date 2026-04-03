@@ -127,7 +127,6 @@
 .emp-card-btn {
   display: block;
   width: 100%;
-  min-height: 160px;
   padding: 16px;
   text-align: left;
   border: none;
@@ -311,6 +310,9 @@
   right: 20px;
   gap: 8px;
 }
+.content--catalog .models-provider-actions {
+  display: flex;
+}
 
 .content--catalog .emp-card__title {
   margin-bottom: 8px;
@@ -363,9 +365,8 @@
 }
 
 .market-card-chip--state {
-  background: var(--bg);
-  border: 1px solid var(--accent-muted);
-  color: var(--accent-muted);
+  background: var(--accent-subtle);
+  color: var(--accent);
 }
 
 .market-card-chip--muted {

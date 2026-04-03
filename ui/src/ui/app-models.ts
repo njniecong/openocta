@@ -5,6 +5,11 @@ import { cloneConfigObject, setPathValue } from "./controllers/config/form-utils
 import type { AddModelForm, AddProviderForm, ModelDefinitionEntry, ModelProvider } from "./views/models.ts";
 import { BUILTIN_PROVIDERS } from "./views/models-builtin.ts";
 
+function setSelectedProvider(host: AppViewState, key: string | null) {
+  host.modelsSelectedProvider = key;
+  host.modelLibrarySelectedProvider = key;
+}
+
 export function handleModelsRefresh(host: AppViewState) {
   loadConfig(host);
 }
@@ -46,7 +51,7 @@ export function handleModelsAddProviderSubmit(host: AppViewState) {
   }
   if (models.providers[key]) {
     host.modelsAddProviderModalOpen = false;
-    host.modelsSelectedProvider = key;
+    setSelectedProvider(host, key);
     return;
   }
   models.providers[key] = {
@@ -60,11 +65,11 @@ export function handleModelsAddProviderSubmit(host: AppViewState) {
   host.configFormDirty = true;
   host.modelsFormDirty = true;
   host.modelsAddProviderModalOpen = false;
-  host.modelsSelectedProvider = key;
+  setSelectedProvider(host, key);
 }
 
 export function handleModelsSelect(host: AppViewState, key: string | null) {
-  host.modelsSelectedProvider = key;
+  setSelectedProvider(host, key);
 }
 
 export function handleModelsPatch(host: AppViewState, key: string, patch: Partial<ModelProvider>) {
@@ -279,11 +284,11 @@ export function handleModelsSave(host: AppViewState) {
   patch.env = { vars: mergedEnv, modelEnv: sanitizedModelEnv };
   saveConfigPatch(host, patch);
   host.modelsFormDirty = false;
-  host.modelsSelectedProvider = null;
+  setSelectedProvider(host, null);
 }
 
 export function handleModelsCancel(host: AppViewState) {
-  host.modelsSelectedProvider = null;
+  setSelectedProvider(host, null);
   host.modelsSaveError = null;
   if (host.modelsFormDirty) {
     loadConfig(host);

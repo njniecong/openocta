@@ -335,6 +335,7 @@ import { renderAbout } from "./views/about.ts";
 import { renderLlmTrace } from "./views/llm-trace.ts";
 import { renderSecurity } from "./views/security.ts";
 import { renderModels } from "./views/models.ts";
+import { computeModelLibraryCategories, renderModelLibrary } from "./views/model-library.ts";
 import { renderUsage } from "./views/usage.ts";
 import {
   handleMcpAddServer,
@@ -456,6 +457,12 @@ export function renderApp(state: AppViewState) {
   const chatAvatarUrl = state.chatAvatarUrl ?? assistantAvatarUrl ?? null;
   const configValue =
     state.configForm ?? (state.configSnapshot?.config as Record<string, unknown> | null);
+  const modelProviders =
+    (state.configForm?.models as { providers?: Record<string, import("./views/models.ts").ModelProvider> })
+      ?.providers ?? {};
+  const modelEnv =
+    (state.configForm?.env as { modelEnv?: Record<string, Record<string, string>> })?.modelEnv ?? {};
+  const defaultModelRef = resolveDefaultModelRef(state.configForm);
   const basePath = normalizeBasePath(state.basePath ?? "");
   const isScheduledTasks =
     state.tab === "scheduledTasks" || state.tab === "cronHistory" || state.tab === "cron";
@@ -464,6 +471,7 @@ export function renderApp(state: AppViewState) {
     state.tab === "employeeMarket" ||
     state.tab === "skillLibrary" ||
     state.tab === "toolLibrary" ||
+    state.tab === "modelLibrary" ||
     state.tab === "tutorials";
   const isConfigArea =
     state.tab === "config" ||
@@ -570,8 +578,8 @@ export function renderApp(state: AppViewState) {
             { tab: "employeeMarket", label: "员工市场" },
             { tab: "skillLibrary", label: "技能库" },
             { tab: "toolLibrary", label: "工具库" },
+            { tab: "modelLibrary", label: "模型" },
             { tab: "tutorials", label: "教程" },
-            { tab: "community", label: "社区", href: "https://community.databuff.com/c/10-category/10" },
             { tab: "config", label: "配置" },
           ].map((item) => {
             const tab = (item as any).tab;
@@ -1079,6 +1087,43 @@ export function renderApp(state: AppViewState) {
                           </div>
                         `;
                       })()
+                    : state.tab === "modelLibrary"
+                      ? (() => {
+                          const { orderedCategories, counts } = computeModelLibraryCategories(
+                            modelProviders,
+                            state.modelsProviderSearchQuery,
+                          );
+                          const effectiveCategory = state.modelLibraryCategory ?? "__all__";
+                          return html`
+                            <div class="nav-group">
+                              <div class="nav-group__items">
+                                <div class="emp-categories">
+                                  ${orderedCategories.map((catKey) => {
+                                    const label =
+                                      catKey === "__all__"
+                                        ? "全部"
+                                        : catKey === "public"
+                                          ? "公有模型"
+                                          : "本地模型";
+                                    const active = effectiveCategory === catKey;
+                                    const count = counts.get(catKey) ?? 0;
+                                    return html`
+                                      <button
+                                        class="emp-cat ${active ? "active" : ""}"
+                                        type="button"
+                                        ?disabled=${state.configLoading}
+                                        @click=${() => (state.modelLibraryCategory = catKey)}
+                                      >
+                                        <span class="emp-cat__name">${label}</span>
+                                        <span class="emp-cat__count">${count}</span>
+                                      </button>
+                                    `;
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          `;
+                        })()
                     : state.tab === "tutorials"
                       ? html`<div class="nav-empty"></div>`
                       : html`<div class="nav-empty"></div>`
@@ -3284,14 +3329,59 @@ export function renderApp(state: AppViewState) {
         }
 
         ${
+          state.tab === "modelLibrary"
+            ? renderModelLibrary({
+                providers: modelProviders,
+                modelEnv,
+                defaultModelRef,
+                loading: state.configLoading,
+                saving: state.configSaving,
+                selectedCategory: state.modelLibraryCategory,
+                selectedProvider: state.modelLibrarySelectedProvider,
+                providerSearchQuery: state.modelsProviderSearchQuery,
+                viewMode: state.modelsViewMode,
+                formDirty: state.modelsFormDirty,
+                addProviderModalOpen: state.modelsAddProviderModalOpen,
+                addProviderForm: state.modelsAddProviderForm,
+                addModelModalOpen: state.modelsAddModelModalOpen,
+                addModelForm: state.modelsAddModelForm,
+                useModelModalOpen: state.modelsUseModelModalOpen,
+                useModelModalProvider: state.modelsUseModelModalProvider,
+                saveError: state.modelsSaveError,
+                onRefresh: () => handleModelsRefresh(state),
+                onAddProvider: () => handleModelsAddProvider(state),
+                onAddProviderModalClose: () => handleModelsAddProviderModalClose(state),
+                onAddProviderFormChange: (form) => handleModelsAddProviderFormChange(state, form),
+                onAddProviderSubmit: () => handleModelsAddProviderSubmit(state),
+                onSelect: (key) => handleModelsSelect(state, key),
+                onProviderSearchChange: (q) => (state.modelsProviderSearchQuery = q),
+                onViewModeChange: (mode) => (state.modelsViewMode = mode),
+                onPatch: (key, patch) => handleModelsPatch(state, key, patch),
+                onAddModel: (providerKey) => handleModelsAddModel(state, providerKey),
+                onAddModelModalClose: () => handleModelsAddModelModalClose(state),
+                onAddModelFormChange: (form) => handleModelsAddModelFormChange(state, form),
+                onAddModelSubmit: (providerKey) => handleModelsAddModelSubmit(state, providerKey),
+                onRemoveModel: (providerKey, modelId) => handleModelsRemoveModel(state, providerKey, modelId),
+                onPatchModel: (providerKey, modelId, patch) =>
+                  handleModelsPatchModel(state, providerKey, modelId, patch),
+                onPatchModelEnv: (providerKey, modelId, envVars) =>
+                  handleModelsPatchModelEnv(state, providerKey, modelId, envVars),
+                onSave: () => handleModelsSave(state),
+                onCancel: () => handleModelsCancel(state),
+                onUseModelClick: (provider) => handleModelsUseModelClick(state, provider),
+                onUseModelModalClose: () => handleModelsUseModelModalClose(state),
+                onUseModel: (provider, modelId) => handleModelsUseModel(state, provider, modelId),
+                onCancelUse: (provider) => handleModelsCancelUse(state, provider),
+              })
+            : nothing
+        }
+
+        ${
           state.tab === "models"
             ? renderModels({
-                providers:
-                  (state.configForm?.models as { providers?: Record<string, import("./views/models.ts").ModelProvider> })
-                    ?.providers ?? {},
-                modelEnv:
-                  (state.configForm?.env as { modelEnv?: Record<string, Record<string, string>> })?.modelEnv ?? {},
-                defaultModelRef: resolveDefaultModelRef(state.configForm),
+                providers: modelProviders,
+                modelEnv,
+                defaultModelRef,
                 loading: state.configLoading,
                 saving: state.configSaving,
                 selectedProvider: state.modelsSelectedProvider,

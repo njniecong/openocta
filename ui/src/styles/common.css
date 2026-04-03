@@ -376,7 +376,7 @@
 }
 
 .field + .field {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .field.full {
@@ -384,9 +384,9 @@
 }
 
 .field > span {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 13px;
-  font-weight: 500;
+  line-height: 22px;
 }
 
 .field .checkbox,
@@ -589,8 +589,18 @@
   border-color: var(--border-primary);
 }
 
-.muted {
+.text-primary {
+  color: var(--text-primary);
+}
+.text-regular {
+  color: var(--text-regular);
+}
+.muted,
+.text-secondary {
   color: var(--text-secondary);
+}
+.text-placeholder {
+  color: var(--text-placeholder);
 }
 
 .mono {

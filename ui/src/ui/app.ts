@@ -307,6 +307,8 @@ export class OpenClawApp extends LitElement implements NativeDialogInvoker {
   @state() modelsUseModelModalOpen = false;
   @state() modelsUseModelModalProvider: string | null = null;
   @state() modelsSaveError: string | null = null;
+  @state() modelLibraryCategory: "__all__" | "public" | "local" = "__all__";
+  @state() modelLibrarySelectedProvider: string | null = null;
   @state() skillsSelectedSkillKey: string | null = null;
   @state() skillsSkillDocContent: string | null = null;
   @state() skillsSkillDocLoading = false;
