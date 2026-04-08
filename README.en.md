@@ -3,19 +3,19 @@
 </p>
 
 <p align="center">
-  <b>OpenOcta</b> — An open‑source, enterprise‑grade agent built for operations
+  <b>OpenOcta</b> — An open‑source, enterprise‑grade AI agent: one binary, deploy anywhere
 </p>
 
 > English | [简体中文](README.md)
 
 
-OpenOcta takes design cues from [OpenClaw](https://github.com/openocta/openocta) and is **fully reimplemented** as a **single Go backend binary with an embedded frontend**, aimed at operations, observability, and automation workloads.
+OpenOcta takes design cues from [OpenClaw](https://github.com/openocta/openocta) and is **fully reimplemented** as a **single Go backend binary with an embedded frontend**, suited to in‑enterprise chat, workflow automation, and integrating business systems, APIs, and toolchains.
 
 ---
 
 ## Project overview
 
-- **Positioning**: Acts inside the enterprise as an **observability & operations hub**, unifying monitoring, logs, configuration, CMDB, tickets, and similar data sources so the Agent can help with troubleshooting, analysis, and decisions.
+- **Positioning**: Provides a **unified AI Agent runtime and control plane** inside the enterprise, connecting business systems, HTTP/APIs, MCP tools, and custom skills for conversational workflows, task orchestration, and automation.
 - **Form factor**: One binary that ships Gateway, Agent, Channels, Cron, and the embedded Control UI static assets; integrate via CLI, HTTP/WebSocket, and Webhooks.
 - **Protocol compatibility**: Compatible with the OpenClaw Gateway WebSocket protocol and official Control UI behavior, so you can migrate from or run alongside OpenClaw.
 
@@ -23,7 +23,7 @@ OpenOcta takes design cues from [OpenClaw](https://github.com/openocta/openocta)
 
 ## Community & feedback
 
-- **Discussions & experience sharing**: Join the OpenOcta group to share deployment practices, ops scenarios, and best practices.
+- **Discussions & experience sharing**: Join the OpenOcta group to share deployment practices, integration scenarios, and best practices.
 - **Issues & feature requests**: Ask in the group or open Issues / PRs in this repository.
 
 <p align="center">
@@ -111,7 +111,7 @@ On first run, if no config file exists, OpenOcta seeds one from the embedded `op
 - **Configuration & capabilities** (`src/docs/`):
   - `configuration.md` — overview: agents, channels, gateway, cron, hooks, memory, and more.
   - `mcp-configuration.md` — MCP server declarations, permissions, timeouts.
-  - `trace-and-observability.md` — tracing, token usage, and call chains.
+  - `request-tracing.md` — request tracing, token usage, and call chains.
   - `webhooks.md` — `/hooks/wake`, `/hooks/agent`, `/hooks/alert` payloads and use cases.
   - `architecture.md` — layered design on agentsdk-go and extension points.
   - `skills.md`, `tools.md`, `tools-builtin.md`, `tools-openocta.md` — skills and tools overview.

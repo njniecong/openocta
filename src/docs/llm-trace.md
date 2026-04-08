@@ -176,6 +176,6 @@ agentsdk-go Trace 中间件输出格式：
 
 ## 8. 参考
 
-- [Trace 与可观测性](./trace-and-observability.md)
+- [请求追踪与 Trace 采集](./request-tracing.md)
 - [agentsdk-go Trace 系统](https://github.com/stellarlinkco/agentsdk-go/blob/main/docs/trace-system.md)
 - 本仓库：`pkg/agent/runtime/runtime.go`、`pkg/gateway/handlers/trace.go`、`ui/src/ui/views/llm-trace.ts`
