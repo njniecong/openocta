@@ -20,6 +20,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -111,6 +112,11 @@ func main() {
 	// Windows 使用系统原生标题栏，确保窗口有最小化/最大化/关闭按钮，可拖动和调整大小
 	if runtime.GOOS == "windows" {
 		appOptions.Frameless = false
+		appOptions.Windows = &windows.Options{
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
+			DisableWindowIcon:    false,
+		}
 	}
 	runErr := wails.Run(appOptions)
 	if runErr != nil {
