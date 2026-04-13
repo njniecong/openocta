@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
+	"strings"
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/chatbot"
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/client"
 
