@@ -20,3 +20,6 @@ dist-mac/
 ./docs/
 __screenshots__
 ./src/build/
+testskills/
+.claude/
+ClAUDE.md
