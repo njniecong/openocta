@@ -626,15 +626,23 @@ export function renderToolLibrary(props: ToolLibraryProps) {
                           ${props.selectedDetail.name ?? `#${props.selectedDetail.id}`}
                         </h1>
                         <div class="emp-detail-tags">
-                          ${(props.selectedDetail.category ?? "").trim()
-                            ? html`<span class="badge ghost">${normalizeCategory(props.selectedDetail.category)}</span>`
-                            : nothing}
+                          ${(() => {
+                            const detailCategory = normalizeCategory(props.selectedDetail.category);
+                            const hideDetailCategory = effectiveCategory && effectiveCategory !== "__all__" && detailCategory === effectiveCategory;
+                            return (props.selectedDetail.category ?? "").trim() && !hideDetailCategory
+                              ? html`<span class="badge ghost">${detailCategory}</span>`
+                              : nothing;
+                          })()}
                           ${(props.selectedDetail.status ?? "").trim()
                             ? html`<span class="badge ghost">${statusLabel(props.selectedDetail.status)}</span>`
                             : nothing}
-                          ${(props.selectedDetail.tags ?? "").trim()
-                            ? splitCsv(props.selectedDetail.tags).map((t) => html`<span class="badge ghost">${t}</span>`)
-                            : nothing}
+                          ${(() => {
+                            const detailTags = splitCsv(props.selectedDetail.tags);
+                            const visibleDetailTags = effectiveCategory && effectiveCategory !== "__all__"
+                              ? detailTags.filter((t) => t !== effectiveCategory)
+                              : detailTags;
+                            return visibleDetailTags.map((t) => html`<span class="badge ghost">${t}</span>`);
+                          })()}
                         </div>
                       </div>
                       <article class="emp-detail-summary">${props.selectedDetail.description ?? ""}</article>
