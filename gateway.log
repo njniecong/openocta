@@ -1,0 +1,4 @@
+Starting Gateway on 127.0.0.1:18900 (mode=desktop, OpenOcta 0.2.6)
+2026-04-10 19:20:45 [INFO] Gateway starting addr=127.0.0.1:18900 mode=desktop version=0.2.6
+Shutting down...
+Gateway error: http: Server closed
